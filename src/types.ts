@@ -22,10 +22,22 @@ export interface BarnesSample {
   value: number;
 }
 
-export type GridContourThresholds = number | readonly number[];
-
 export interface GridContourOptions {
-  thresholds?: GridContourThresholds;
+  spacing: number;
+  base?: number;
   smooth?: boolean;
   outerRingsOnly?: boolean;
+}
+
+export type GeoJSONInterpolationMode = "isoband" | "isobands" | "isoline" | "isolines";
+
+export interface InterpolateGeoJSONOptions {
+  sigma?: ScalarOrVector;
+  x0?: ScalarOrVector;
+  step?: ScalarOrVector;
+  size?: SizeInput;
+  resolution?: number | readonly [number, number];
+  padding?: number;
+  barnesOptions?: BarnesOptions;
+  contourOptions: GridContourOptions;
 }

@@ -56,11 +56,11 @@ const field = barnes(points, values, 1.0, x0, step, size, {
 });
 
 const isobands = gridToIsobandsGeoJSON(field, x0, step, {
-  thresholds: 12,
+  spacing: 1,
 });
 
 const isolines = gridToIsolinesGeoJSON(field, x0, step, {
-  thresholds: 12,
+  spacing: 1,
   outerRingsOnly: true,
 });
 ```
@@ -137,6 +137,7 @@ Returns:
 - `toSamples(points, values)`
 - `fromSamples(samples)`
 - `samplesFromGeoJSON(featureCollection, propertyKey)`
+- `interpolateGeoJSON(featureCollection, propertyKey, mode, options?)`
 - `toNestedArray(result)`
 
 Example:
@@ -159,7 +160,41 @@ const featureCollection: FeatureCollection<Point, GeoJsonProperties> = data;
 
 const samples = samplesFromGeoJSON(featureCollection, "pressure");
 const field = barnes(samples, sigma, x0, step, size);
+
+// For compile-time key checking, use a concrete properties type:
+type PressureProps = { pressure: number; stationId: string };
+const typedCollection: FeatureCollection<Point, PressureProps> = data;
+const typedSamples = samplesFromGeoJSON(typedCollection, "pressure"); // ✅
+// samplesFromGeoJSON(typedCollection, "temperature"); // ❌ not a key of PressureProps
 ```
+
+Single-call interpolation to contours:
+
+```ts
+import { interpolateGeoJSON } from "fast-barnes-ts";
+
+const isolines = interpolateGeoJSON(featureCollection, "pressure", "isoline", {
+  contourOptions: { spacing: 1 },
+});
+const isobands = interpolateGeoJSON(featureCollection, "pressure", "isoband", {
+  resolution: [96, 96],
+  contourOptions: { spacing: 1 },
+});
+
+const pressureIsolines = interpolateGeoJSON(featureCollection, "pressure", "isoline", {
+  contourOptions: {
+    spacing: 4,
+    base: 1024,
+  },
+});
+```
+
+`contourOptions.spacing` and `contourOptions.base` generate levels at:
+
+- `base + k * spacing` for integer `k` (with `base` defaulting to `0`)
+- covering the interpolated data range (both upward and downward from `base`)
+
+`spacing` is required for contour generation.
 
 ## Notes
 

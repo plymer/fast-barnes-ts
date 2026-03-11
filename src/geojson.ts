@@ -10,11 +10,13 @@ import type {
 } from "geojson";
 import type {
   BarnesSample,
+  InterpolateGeoJSONOptions,
+  GeoJSONInterpolationMode,
   BarnesResult,
   GridContourOptions,
-  GridContourThresholds,
   ScalarOrVector,
 } from "./types";
+import { barnes } from "./barnes";
 
 export interface ContourBandProperties {
   value: number;
@@ -25,16 +27,134 @@ export interface ContourLineProperties {
 }
 
 /**
+ * End-to-end GeoJSON interpolation helper that converts point features to samples,
+ * interpolates with Barnes, and returns either isobands or isolines.
+ *
+ * With only the first three arguments, the interpolation grid is derived from point bounds.
+ *
+ * `valueProperty` is constrained to keys of the feature `properties` type.
+ *
+ * @param featureCollection GeoJSON points with numeric values in `properties`.
+ * @param valueProperty Property key to read the sample value from each feature.
+ * @param mode Output contour mode (`"isoband" | "isobands" | "isoline" | "isolines"`).
+ * @param options Optional interpolation and contour settings.
+ * @returns GeoJSON isobands (`MultiPolygon`) or isolines (`LineString`).
+ */
+export function interpolateGeoJSON<P extends GeoJsonProperties, K extends string>(
+  featureCollection: FeatureCollection<Point, P>,
+  valueProperty: K & keyof NonNullable<P>,
+  mode: "isoline" | "isolines",
+  options: InterpolateGeoJSONOptions,
+): FeatureCollection<LineString, ContourLineProperties>;
+
+export function interpolateGeoJSON<P extends GeoJsonProperties, K extends string>(
+  featureCollection: FeatureCollection<Point, P>,
+  valueProperty: K & keyof NonNullable<P>,
+  mode: "isoband" | "isobands",
+  options: InterpolateGeoJSONOptions,
+): FeatureCollection<MultiPolygon, ContourBandProperties>;
+
+export function interpolateGeoJSON<P extends GeoJsonProperties, K extends string>(
+  featureCollection: FeatureCollection<Point, P>,
+  valueProperty: K & keyof NonNullable<P>,
+  mode: GeoJSONInterpolationMode,
+  options: InterpolateGeoJSONOptions,
+):
+  | FeatureCollection<MultiPolygon, ContourBandProperties>
+  | FeatureCollection<LineString, ContourLineProperties> {
+  const samples = samplesFromGeoJSON(featureCollection, valueProperty);
+
+  if (samples.length === 0) {
+    return { type: "FeatureCollection", features: [] };
+  }
+
+  const points: number[][] = [];
+  const values: number[] = [];
+
+  for (let i = 0; i < samples.length; i++) {
+    const sample = samples[i];
+    if (typeof sample.point === "number" || sample.point.length !== 2) {
+      throw new Error("interpolateGeoJSON currently supports only 2D Point geometries");
+    }
+    points.push([sample.point[0], sample.point[1]]);
+    values.push(sample.value);
+  }
+
+  const hasAnyManualGridParam =
+    options.x0 !== undefined || options.step !== undefined || options.size !== undefined;
+  const hasAllManualGridParams =
+    options.x0 !== undefined && options.step !== undefined && options.size !== undefined;
+
+  if (hasAnyManualGridParam && !hasAllManualGridParams) {
+    throw new Error("When specifying manual grid parameters, provide x0, step, and size together");
+  }
+
+  let x0: [number, number];
+  let step: [number, number];
+  let size: [number, number];
+
+  if (hasAllManualGridParams) {
+    x0 = normalize2DVector(options.x0 as ScalarOrVector, "x0");
+    step = normalize2DVector(options.step as ScalarOrVector, "step");
+    const sizeVec = normalize2DSize(options.size as number | readonly number[]);
+    size = [sizeVec[0], sizeVec[1]];
+  } else {
+    const [rx, ry] = normalizeResolution(options.resolution);
+    const padding = options.padding ?? 0.05;
+
+    if (!(padding >= 0)) {
+      throw new Error(`padding must be >= 0, got ${padding}`);
+    }
+
+    let minX = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+
+    for (let i = 0; i < points.length; i++) {
+      const [px, py] = points[i];
+      if (px < minX) minX = px;
+      if (px > maxX) maxX = px;
+      if (py < minY) minY = py;
+      if (py > maxY) maxY = py;
+    }
+
+    const extentX = maxX - minX;
+    const extentY = maxY - minY;
+    const padX = extentX > 0 ? extentX * padding : 1;
+    const padY = extentY > 0 ? extentY * padding : 1;
+
+    x0 = [minX - padX, minY - padY];
+    size = [rx, ry];
+
+    const spanX = maxX + padX - x0[0];
+    const spanY = maxY + padY - x0[1];
+    step = [spanX / Math.max(1, size[0] - 1), spanY / Math.max(1, size[1] - 1)];
+  }
+
+  const sigma = options.sigma ?? Math.max(step[0], step[1]) * 2.0;
+  const grid = barnes(points, values, sigma, x0, step, size, options.barnesOptions ?? {});
+
+  if (mode === "isoline" || mode === "isolines") {
+    return gridToIsolinesGeoJSON(grid, x0, step, options.contourOptions);
+  }
+
+  return gridToIsobandsGeoJSON(grid, x0, step, options.contourOptions);
+}
+
+/**
  * Builds Barnes samples from a GeoJSON `FeatureCollection` of `Point` features.
+ *
+ * `valueProperty` is constrained to keys of the feature `properties` type.
  *
  * @param featureCollection GeoJSON points with numeric values in `properties`.
  * @param valueProperty Property key to read the sample value from each feature.
  * @returns Sample array compatible with `barnes(samples, ...)`.
  * @throws If a feature is not a `Point`, has inconsistent dimensions, or has a missing/non-numeric property.
  */
-export function samplesFromGeoJSON(
-  featureCollection: FeatureCollection<Point, GeoJsonProperties>,
-  valueProperty: string,
+export function samplesFromGeoJSON<P extends GeoJsonProperties, K extends string>(
+  featureCollection: FeatureCollection<Point, P>,
+  valueProperty: K & keyof NonNullable<P>,
 ): BarnesSample[] {
   const samples: BarnesSample[] = [];
   let dim: 2 | 3 | undefined;
@@ -61,10 +181,11 @@ export function samplesFromGeoJSON(
       );
     }
 
-    const rawValue = feature.properties?.[valueProperty];
+    const properties = feature.properties as NonNullable<P> | null | undefined;
+    const rawValue = properties?.[valueProperty];
     if (typeof rawValue !== "number" || !Number.isFinite(rawValue)) {
       throw new Error(
-        `Feature ${i} has non-numeric or missing property '${valueProperty}': ${String(rawValue)}`,
+        `Feature ${i} has non-numeric or missing property '${String(valueProperty)}': ${String(rawValue)}`,
       );
     }
 
@@ -83,14 +204,14 @@ export function samplesFromGeoJSON(
  * @param grid 2D interpolation result from `barnes(...)`.
  * @param x0 Grid origin in data coordinates.
  * @param step Grid spacing in data coordinates.
- * @param options Contour generation options (thresholds/smoothing).
+ * @param options Contour generation options (`spacing` required, `base` defaults to `0`).
  * @returns GeoJSON `FeatureCollection` of `MultiPolygon` contour bands.
  */
 export function gridToIsobandsGeoJSON(
   grid: BarnesResult,
   x0: ScalarOrVector,
   step: ScalarOrVector,
-  options: GridContourOptions = {},
+  options: GridContourOptions,
 ): FeatureCollection<MultiPolygon, ContourBandProperties> {
   ensure2DGrid(grid);
   const [sx, sy] = grid.shape;
@@ -99,7 +220,7 @@ export function gridToIsobandsGeoJSON(
 
   const generator = contours()
     .size([sx, sy])
-    .thresholds(resolveThresholds(options.thresholds))
+    .thresholds(resolveThresholds(grid, options))
     .smooth(options.smooth ?? true);
 
   const res = generator(Array.from(grid.data));
@@ -140,7 +261,7 @@ export function gridToIsolinesGeoJSON(
   grid: BarnesResult,
   x0: ScalarOrVector,
   step: ScalarOrVector,
-  options: GridContourOptions = {},
+  options: GridContourOptions,
 ): FeatureCollection<LineString, ContourLineProperties> {
   const bands = gridToIsobandsGeoJSON(grid, x0, step, options);
   const outerOnly = options.outerRingsOnly ?? true;
@@ -190,11 +311,83 @@ function normalize2DVector(value: ScalarOrVector, name: string): [number, number
   return [arr[0], arr[1]];
 }
 
-function resolveThresholds(thresholds: GridContourThresholds | undefined): number | number[] {
-  if (thresholds === undefined) {
-    return 10;
+function normalize2DSize(size: number | readonly number[]): [number, number] {
+  if (typeof size === "number") {
+    throw new Error("size must be a length-2 array for GeoJSON interpolation");
   }
-  return typeof thresholds === "number" ? thresholds : Array.from(thresholds);
+  const arr = Array.from(size);
+  if (arr.length !== 2) {
+    throw new Error(`size must be length-2, got length ${arr.length}`);
+  }
+  const sx = Math.trunc(arr[0]);
+  const sy = Math.trunc(arr[1]);
+  if (sx < 2 || sy < 2) {
+    throw new Error(`size values must be >= 2, got [${sx}, ${sy}]`);
+  }
+  return [sx, sy];
+}
+
+function normalizeResolution(
+  resolution: number | readonly [number, number] | undefined,
+): [number, number] {
+  if (resolution === undefined) {
+    return [128, 128];
+  }
+
+  if (typeof resolution === "number") {
+    const r = Math.trunc(resolution);
+    if (r < 2) {
+      throw new Error(`resolution must be >= 2, got ${resolution}`);
+    }
+    return [r, r];
+  }
+
+  const rx = Math.trunc(resolution[0]);
+  const ry = Math.trunc(resolution[1]);
+  if (rx < 2 || ry < 2) {
+    throw new Error(`resolution values must be >= 2, got [${resolution[0]}, ${resolution[1]}]`);
+  }
+  return [rx, ry];
+}
+
+function resolveThresholds(grid: BarnesResult, options: GridContourOptions): number[] {
+  const { spacing, base } = options;
+  if (!(spacing > 0)) {
+    throw new Error(`spacing must be > 0, got ${spacing}`);
+  }
+
+  const baseValue = base ?? 0;
+  return buildSpacedThresholds(grid.data, spacing, baseValue);
+}
+
+function buildSpacedThresholds(data: Float32Array, spacing: number, base: number): number[] {
+  let min = Number.POSITIVE_INFINITY;
+  let max = Number.NEGATIVE_INFINITY;
+
+  for (let i = 0; i < data.length; i++) {
+    const value = data[i];
+    if (!Number.isFinite(value)) continue;
+    if (value < min) min = value;
+    if (value > max) max = value;
+  }
+
+  if (!Number.isFinite(min) || !Number.isFinite(max)) {
+    return [];
+  }
+
+  const startK = Math.ceil((min - base) / spacing);
+  const endK = Math.floor((max - base) / spacing);
+
+  if (startK > endK) {
+    return [];
+  }
+
+  const levels: number[] = [];
+  for (let k = startK; k <= endK; k++) {
+    levels.push(base + k * spacing);
+  }
+
+  return levels;
 }
 
 function transformMultiPolygon(

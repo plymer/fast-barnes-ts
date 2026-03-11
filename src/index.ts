@@ -8,15 +8,21 @@ export {
   toSamples,
   toNestedArray,
 } from "./barnes";
-export { gridToIsobandsGeoJSON, gridToIsolinesGeoJSON, samplesFromGeoJSON } from "./geojson";
+export {
+  gridToIsobandsGeoJSON,
+  gridToIsolinesGeoJSON,
+  interpolateGeoJSON,
+  samplesFromGeoJSON,
+} from "./geojson";
 
 export type {
   BarnesSample,
   BarnesMethod,
   BarnesOptions,
   BarnesResult,
+  GeoJSONInterpolationMode,
   GridContourOptions,
-  GridContourThresholds,
+  InterpolateGeoJSONOptions,
   PointInput,
   ScalarOrVector,
   SizeInput,

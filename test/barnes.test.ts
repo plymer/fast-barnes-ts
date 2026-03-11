@@ -6,6 +6,7 @@ import {
   getHalfKernelSizeOpt,
   gridToIsobandsGeoJSON,
   gridToIsolinesGeoJSON,
+  interpolateGeoJSON,
   samplesFromGeoJSON,
   toSamples,
   toNestedArray,
@@ -225,6 +226,124 @@ describe("barnes", () => {
     expect(() => samplesFromGeoJSON(fc, "pressure")).toThrow();
   });
 
+  it("interpolates GeoJSON directly to isolines", () => {
+    const fc: FeatureCollection<Point, GeoJsonProperties> = {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [0.2, 0.2] },
+          properties: { pressure: 1.0 },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [1.2, 1.1] },
+          properties: { pressure: 2.0 },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [2.5, 0.7] },
+          properties: { pressure: 0.5 },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [0.4, 1.7] },
+          properties: { pressure: 1.4 },
+        },
+      ],
+    };
+
+    const lines = interpolateGeoJSON(fc, "pressure", "isoline", {
+      resolution: 64,
+      contourOptions: { spacing: 0.25, base: 0 },
+    });
+
+    expect(lines.type).toBe("FeatureCollection");
+    expect(lines.features.length).toBeGreaterThan(0);
+    expect(lines.features[0].geometry.type).toBe("LineString");
+  });
+
+  it("interpolates GeoJSON directly to isobands", () => {
+    const fc: FeatureCollection<Point, GeoJsonProperties> = {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [0.2, 0.2] },
+          properties: { pressure: 1.0 },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [1.2, 1.1] },
+          properties: { pressure: 2.0 },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [2.5, 0.7] },
+          properties: { pressure: 0.5 },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [0.4, 1.7] },
+          properties: { pressure: 1.4 },
+        },
+      ],
+    };
+
+    const bands = interpolateGeoJSON(fc, "pressure", "isoband", {
+      resolution: [48, 40],
+      contourOptions: { spacing: 0.25, base: 0 },
+    });
+
+    expect(bands.type).toBe("FeatureCollection");
+    expect(bands.features.length).toBeGreaterThan(0);
+    expect(bands.features[0].geometry.type).toBe("MultiPolygon");
+  });
+
+  it("supports contour spacing and base in contourOptions", () => {
+    const fc: FeatureCollection<Point, GeoJsonProperties> = {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [0.0, 0.0] },
+          properties: { pressure: 1018 },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [1.0, 0.0] },
+          properties: { pressure: 1023 },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [0.0, 1.0] },
+          properties: { pressure: 1029 },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [1.0, 1.0] },
+          properties: { pressure: 1034 },
+        },
+      ],
+    };
+
+    const lines = interpolateGeoJSON(fc, "pressure", "isoline", {
+      resolution: [64, 64],
+      sigma: 0.35,
+      contourOptions: {
+        spacing: 4,
+        base: 1024,
+      },
+    });
+
+    expect(lines.features.length).toBeGreaterThan(0);
+    for (const feature of lines.features) {
+      const value = feature.properties.value;
+      const idx = Math.round((value - 1024) / 4);
+      expect(Math.abs(value - (1024 + idx * 4))).toBeLessThan(1e-6);
+    }
+  });
+
   it("converts interpolated grid to GeoJSON isobands and isolines", () => {
     const rand = lcg(7);
     const points: number[][] = [];
@@ -247,7 +366,8 @@ describe("barnes", () => {
     });
 
     const bands = gridToIsobandsGeoJSON(grid, x0, step, {
-      thresholds: 8,
+      spacing: 0.25,
+      base: 0,
     });
 
     expect(bands.type).toBe("FeatureCollection");
@@ -256,7 +376,8 @@ describe("barnes", () => {
     expect(typeof bands.features[0].properties.value).toBe("number");
 
     const lines = gridToIsolinesGeoJSON(grid, x0, step, {
-      thresholds: 8,
+      spacing: 0.25,
+      base: 0,
       outerRingsOnly: true,
     });
 
