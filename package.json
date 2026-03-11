@@ -1,0 +1,65 @@
+{
+  "name": "fast-barnes-ts",
+  "version": "0.1.0",
+  "description": "Fast Barnes interpolation for 1D, 2D and 3D data in TypeScript.",
+  "keywords": [
+    "barnes",
+    "interpolation",
+    "gridding",
+    "gaussian",
+    "meteorology",
+    "spatial"
+  ],
+  "homepage": "https://github.com/ryan/fast-barnes-ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ryan/fast-barnes-ts.git"
+  },
+  "license": "MIT",
+  "author": "Ryan",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "benchmark": "npm run build && BENCH_SAMPLES=400 BENCH_RESOLUTION=4 BENCH_REPS=1 node scripts/benchmark.mjs",
+    "benchmark:custom": "npm run build && node scripts/benchmark.mjs",
+    "clean": "rm -rf dist",
+    "dev": "tsup --watch",
+    "example:geojson": "npm run build && node examples/export-geojson.mjs",
+    "example:maplibre": "npm run example:geojson && node examples/serve.mjs",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "d3-contour": "^4.0.2"
+  },
+  "peerDependencies": {
+    "@types/geojson": ">=7946.0.16"
+  },
+  "devDependencies": {
+    "@types/d3-contour": "^3.0.6",
+    "@types/geojson": "^7946.0.16",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}
