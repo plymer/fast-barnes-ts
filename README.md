@@ -96,6 +96,22 @@ Then open:
 
 This command regenerates the sample GeoJSON and starts a local static server.
 
+### Private local-data workflow (gitignored)
+
+If you have a real dataset you do not want in git, you can run interpolation directly in the browser:
+
+```bash
+node examples/serve.mjs
+```
+
+Open:
+
+- `http://localhost:4173/examples/local/maplibre-local.html`
+
+Choose your local GeoJSON file in the page and interpolation runs in-browser with live controls.
+
+If you prefer CLI generation, see `examples/local/README.md` for the script-based workflow and environment variable options (`VALUE_FIELD`, `MODE`, `SPACING`, `BASE`, etc.).
+
 ## API
 
 ### `barnes(pts, val, sigma, x0, step, size, options?)`
@@ -182,6 +198,7 @@ const isobands = interpolateGeoJSON(featureCollection, "pressure", "isoband", {
 });
 
 const pressureIsolines = interpolateGeoJSON(featureCollection, "pressure", "isoline", {
+  debug: true,
   contourOptions: {
     spacing: 4,
     base: 1024,
@@ -195,6 +212,9 @@ const pressureIsolines = interpolateGeoJSON(featureCollection, "pressure", "isol
 - covering the interpolated data range (both upward and downward from `base`)
 
 `spacing` is required for contour generation.
+
+Set `debug: true` in `interpolateGeoJSON` options to print verbose process logs
+(input feature count, extracted sample count, derived grid parameters, and output feature count).
 
 ## Notes
 

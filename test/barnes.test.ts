@@ -211,7 +211,7 @@ describe("barnes", () => {
     expect(result.shape).toEqual([8, 6]);
   });
 
-  it("throws when GeoJSON property key is missing", () => {
+  it("skips features when GeoJSON property key is missing", () => {
     const fc: FeatureCollection<Point, GeoJsonProperties> = {
       type: "FeatureCollection",
       features: [
@@ -219,6 +219,27 @@ describe("barnes", () => {
           type: "Feature",
           geometry: { type: "Point", coordinates: [0.2, 0.2] },
           properties: {},
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [0.4, 0.6] },
+          properties: { pressure: 1012 },
+        },
+      ],
+    };
+
+    const samples = samplesFromGeoJSON(fc, "pressure");
+    expect(samples).toEqual([{ point: [0.4, 0.6], value: 1012 }]);
+  });
+
+  it("throws when GeoJSON property value is non-numeric", () => {
+    const fc: FeatureCollection<Point, GeoJsonProperties> = {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [0.2, 0.2] },
+          properties: { pressure: "bad" },
         },
       ],
     };

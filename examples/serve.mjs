@@ -56,9 +56,10 @@ const server = createServer(async (req, res) => {
 
     if (!stat || !stat.isFile()) {
       const fallback = path.join(rootDir, "examples", "maplibre-viewer.html");
-      const wantsHtml = (req.url || "").includes(".html") || (req.url || "/") === "/";
+      const requestPath = decodeURIComponent(((req.url || "/").split("?")[0] || "/").trim());
+      const wantsDefaultPage = requestPath === "/" || requestPath === "";
 
-      if (wantsHtml) {
+      if (wantsDefaultPage) {
         const fbStat = await fs.stat(fallback).catch(() => null);
         if (fbStat && fbStat.isFile()) {
           const data = await fs.readFile(fallback);
@@ -94,4 +95,5 @@ const server = createServer(async (req, res) => {
 server.listen(port, () => {
   console.log(`Serving ${rootDir}`);
   console.log(`Open http://localhost:${port}/examples/maplibre-viewer.html`);
+  console.log(`Open http://localhost:${port}/examples/local/maplibre-local.html`);
 });

@@ -49,6 +49,8 @@
     "clean": "rm -rf dist",
     "dev": "tsup --watch",
     "example:geojson": "npm run build && node examples/export-geojson.mjs",
+    "example:local:interpolate": "npm run build && node examples/local/interpolate-local.mjs",
+    "example:local:maplibre": "npm run build && node examples/serve.mjs",
     "example:maplibre": "npm run example:geojson && node examples/serve.mjs",
     "lint": "tsc --noEmit",
     "test": "vitest run",

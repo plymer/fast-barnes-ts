@@ -2,3 +2,5 @@ node_modules/
 dist/
 coverage/
 *.log
+examples/local/data/
+examples/local/output/

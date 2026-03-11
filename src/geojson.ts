@@ -62,9 +62,31 @@ export function interpolateGeoJSON<P extends GeoJsonProperties, K extends string
 ):
   | FeatureCollection<MultiPolygon, ContourBandProperties>
   | FeatureCollection<LineString, ContourLineProperties> {
+  const debug = options.debug ?? false;
+  const inputFeatureCount = featureCollection.features.length;
+
+  const logDebug = (...args: unknown[]) => {
+    if (debug) {
+      console.info("[fast-barnes-ts][interpolateGeoJSON]", ...args);
+    }
+  };
+
+  logDebug("start", {
+    mode,
+    valueProperty: String(valueProperty),
+    inputFeatureCount,
+  });
+
   const samples = samplesFromGeoJSON(featureCollection, valueProperty);
+  const skippedFeatureCount = inputFeatureCount - samples.length;
+
+  logDebug("samples extracted", {
+    sampleCount: samples.length,
+    skippedFeatureCount,
+  });
 
   if (samples.length === 0) {
+    logDebug("no samples after extraction; returning empty FeatureCollection");
     return { type: "FeatureCollection", features: [] };
   }
 
@@ -133,13 +155,38 @@ export function interpolateGeoJSON<P extends GeoJsonProperties, K extends string
   }
 
   const sigma = options.sigma ?? Math.max(step[0], step[1]) * 2.0;
+  logDebug("interpolation grid", {
+    x0,
+    step,
+    size,
+    sigma,
+    hasManualGridParams: hasAllManualGridParams,
+  });
+
   const grid = barnes(points, values, sigma, x0, step, size, options.barnesOptions ?? {});
 
+  logDebug("barnes complete", {
+    gridShape: grid.shape,
+    gridDimension: grid.dimension,
+  });
+
   if (mode === "isoline" || mode === "isolines") {
-    return gridToIsolinesGeoJSON(grid, x0, step, options.contourOptions);
+    const lines = gridToIsolinesGeoJSON(grid, x0, step, options.contourOptions);
+    logDebug("contours complete", {
+      outputMode: "isolines",
+      outputFeatureCount: lines.features.length,
+      contourOptions: options.contourOptions,
+    });
+    return lines;
   }
 
-  return gridToIsobandsGeoJSON(grid, x0, step, options.contourOptions);
+  const bands = gridToIsobandsGeoJSON(grid, x0, step, options.contourOptions);
+  logDebug("contours complete", {
+    outputMode: "isobands",
+    outputFeatureCount: bands.features.length,
+    contourOptions: options.contourOptions,
+  });
+  return bands;
 }
 
 /**
@@ -150,7 +197,7 @@ export function interpolateGeoJSON<P extends GeoJsonProperties, K extends string
  * @param featureCollection GeoJSON points with numeric values in `properties`.
  * @param valueProperty Property key to read the sample value from each feature.
  * @returns Sample array compatible with `barnes(samples, ...)`.
- * @throws If a feature is not a `Point`, has inconsistent dimensions, or has a missing/non-numeric property.
+ * @throws If a feature is not a `Point`, has inconsistent dimensions, or has a non-numeric property value.
  */
 export function samplesFromGeoJSON<P extends GeoJsonProperties, K extends string>(
   featureCollection: FeatureCollection<Point, P>,
@@ -183,9 +230,13 @@ export function samplesFromGeoJSON<P extends GeoJsonProperties, K extends string
 
     const properties = feature.properties as NonNullable<P> | null | undefined;
     const rawValue = properties?.[valueProperty];
+    if (rawValue === undefined || rawValue === null) {
+      continue;
+    }
+
     if (typeof rawValue !== "number" || !Number.isFinite(rawValue)) {
       throw new Error(
-        `Feature ${i} has non-numeric or missing property '${String(valueProperty)}': ${String(rawValue)}`,
+        `Feature ${i} has non-numeric property '${String(valueProperty)}': ${String(rawValue)}`,
       );
     }
 

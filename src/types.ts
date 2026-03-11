@@ -32,6 +32,7 @@ export interface GridContourOptions {
 export type GeoJSONInterpolationMode = "isoband" | "isobands" | "isoline" | "isolines";
 
 export interface InterpolateGeoJSONOptions {
+  debug?: boolean;
   sigma?: ScalarOrVector;
   x0?: ScalarOrVector;
   step?: ScalarOrVector;
