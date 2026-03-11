@@ -1,11 +1,16 @@
 {
   "name": "fast-barnes-ts",
   "version": "0.1.0",
-  "description": "Fast Barnes interpolation for 1D, 2D and 3D data in TypeScript.",
+  "description": "Fast Barnes interpolation for irregularly spaced 1D, 2D and 3D sample data in TypeScript.",
   "keywords": [
     "barnes",
+    "samples",
     "interpolation",
     "gridding",
+    "geojson",
+    "contour",
+    "isobands",
+    "isolines",
     "gaussian",
     "meteorology",
     "spatial"

@@ -1,6 +1,6 @@
 # fast-barnes-ts
 
-Fast Barnes interpolation for irregularly spaced 1D/2D/3D observations, implemented in TypeScript for Node.js and browser bundles.
+Fast Barnes interpolation for irregularly spaced 1D/2D/3D samples, implemented in TypeScript for Node.js and browser bundles.
 
 This package ports the fast convolution-based approach from MeteoSwiss `fast-barnes-py` into an npm-friendly TypeScript API.
 
@@ -112,11 +112,11 @@ This command regenerates the sample GeoJSON and starts a local static server.
 
 Alternative input form is also supported:
 
-### `barnes(observations, sigma, x0, step, size, options?)`
+### `barnes(samples, sigma, x0, step, size, options?)`
 
-- `observations`: array of objects like `{ point, value }`
+- `samples`: array of objects like `{ point, value }`
 - `point`: scalar (1D) or coordinate array (e.g. `[x, y]`)
-- `value`: observation value
+- `value`: sample value
 
 Returns:
 
@@ -134,31 +134,31 @@ Returns:
 - `getHalfKernelSizeOpt(...)`
 - `getTailValue(...)`
 - `getSigmaEffective(...)`
-- `toObservations(points, values)`
-- `fromObservations(observations)`
-- `observationsFromGeoJSON(featureCollection, propertyKey)`
+- `toSamples(points, values)`
+- `fromSamples(samples)`
+- `samplesFromGeoJSON(featureCollection, propertyKey)`
 - `toNestedArray(result)`
 
 Example:
 
 ```ts
-import { fromObservations, toObservations, barnes } from "fast-barnes-ts";
+import { fromSamples, toSamples, barnes } from "fast-barnes-ts";
 
-const observations = toObservations(points, values);
-const { points: pointsBack, values: valuesBack } = fromObservations(observations);
-const field = barnes(observations, sigma, x0, step, size);
+const samples = toSamples(points, values);
+const { points: pointsBack, values: valuesBack } = fromSamples(samples);
+const field = barnes(samples, sigma, x0, step, size);
 ```
 
 GeoJSON input example:
 
 ```ts
 import type { FeatureCollection, GeoJsonProperties, Point } from "geojson";
-import { barnes, observationsFromGeoJSON } from "fast-barnes-ts";
+import { barnes, samplesFromGeoJSON } from "fast-barnes-ts";
 
 const featureCollection: FeatureCollection<Point, GeoJsonProperties> = data;
 
-const observations = observationsFromGeoJSON(featureCollection, "pressure");
-const field = barnes(observations, sigma, x0, step, size);
+const samples = samplesFromGeoJSON(featureCollection, "pressure");
+const field = barnes(samples, sigma, x0, step, size);
 ```
 
 ## Notes

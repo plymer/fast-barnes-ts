@@ -1,5 +1,5 @@
 import type {
-  BarnesObservation,
+  BarnesSample,
   BarnesMethod,
   BarnesOptions,
   BarnesResult,
@@ -23,14 +23,14 @@ interface NormalizedInput {
 }
 
 /**
- * Converts parallel coordinate/value arrays into observation objects accepted by `barnes(...)`.
+ * Converts parallel coordinate/value arrays into sample objects accepted by `barnes(...)`.
  *
  * @param pts Input coordinates as 1D points (`number[]`) or multi-dimensional points (`number[][]`).
- * @param val Observation values aligned by index with `pts`.
- * @returns Array of `{ point, value }` observations.
+ * @param val Sample values aligned by index with `pts`.
+ * @returns Array of `{ point, value }` samples.
  * @throws If the number of points and values differ.
  */
-export function toObservations(pts: PointInput, val: ValueInput): BarnesObservation[] {
+export function toSamples(pts: PointInput, val: ValueInput): BarnesSample[] {
   const values = Array.from(val);
 
   if (isPointMatrix(pts)) {
@@ -62,25 +62,25 @@ export function toObservations(pts: PointInput, val: ValueInput): BarnesObservat
 }
 
 /**
- * Converts observation objects back into parallel point/value arrays.
+ * Converts sample objects back into parallel point/value arrays.
  *
- * @param observations Observation objects with scalar or vector `point` values.
+ * @param samples Sample objects with scalar or vector `point` values.
  * @returns Object containing `points` and `values` arrays.
  * @throws If point dimensionality is inconsistent or outside 1D/2D/3D.
  */
-export function fromObservations(observations: ReadonlyArray<BarnesObservation>): {
+export function fromSamples(samples: ReadonlyArray<BarnesSample>): {
   points: number[] | number[][];
   values: number[];
 } {
-  return unpackObservations(observations);
+  return unpackSamples(samples);
 }
 
 /**
- * Interpolates irregular observations onto a regular grid using Barnes interpolation.
+ * Interpolates irregular samples onto a regular grid using Barnes interpolation.
  *
- * Overload accepting observation objects.
+ * Overload accepting sample objects.
  *
- * @param observations Observation array in `{ point, value }` format.
+ * @param samples Sample array in `{ point, value }` format.
  * @param sigma Gaussian width per dimension (scalar or vector).
  * @param x0 Grid origin per dimension (scalar or vector).
  * @param step Grid spacing per dimension (scalar or vector).
@@ -89,7 +89,7 @@ export function fromObservations(observations: ReadonlyArray<BarnesObservation>)
  * @returns Flat grid result with metadata (`shape`, `dimension`).
  */
 export function barnes(
-  observations: ReadonlyArray<BarnesObservation>,
+  samples: ReadonlyArray<BarnesSample>,
   sigma: ScalarOrVector,
   x0: ScalarOrVector,
   step: ScalarOrVector,
@@ -98,12 +98,12 @@ export function barnes(
 ): BarnesResult;
 
 /**
- * Interpolates irregular observations onto a regular grid using Barnes interpolation.
+ * Interpolates irregular samples onto a regular grid using Barnes interpolation.
  *
  * Overload accepting separate point and value arrays.
  *
  * @param pts Input coordinates as 1D points (`number[]`) or multi-dimensional points (`number[][]`).
- * @param val Observation values aligned by index with `pts`.
+ * @param val Sample values aligned by index with `pts`.
  * @param sigma Gaussian width per dimension (scalar or vector).
  * @param x0 Grid origin per dimension (scalar or vector).
  * @param step Grid spacing per dimension (scalar or vector).
@@ -122,7 +122,7 @@ export function barnes(
 ): BarnesResult;
 
 export function barnes(
-  ptsOrObservations: PointInput | ReadonlyArray<BarnesObservation>,
+  ptsOrSamples: PointInput | ReadonlyArray<BarnesSample>,
   valOrSigma: ValueInput | ScalarOrVector,
   sigmaOrX0: ScalarOrVector,
   x0OrStep: ScalarOrVector,
@@ -138,8 +138,8 @@ export function barnes(
   let size: SizeInput;
   let options: BarnesOptions;
 
-  if (isObservationArray(ptsOrObservations)) {
-    const unpacked = unpackObservations(ptsOrObservations);
+  if (isSampleArray(ptsOrSamples)) {
+    const unpacked = unpackSamples(ptsOrSamples);
     pts = unpacked.points;
     val = unpacked.values;
     sigma = valOrSigma as ScalarOrVector;
@@ -148,7 +148,7 @@ export function barnes(
     size = stepOrSize as SizeInput;
     options = (sizeOrOptions as BarnesOptions | undefined) ?? {};
   } else {
-    pts = ptsOrObservations;
+    pts = ptsOrSamples;
     val = valOrSigma as ValueInput;
     sigma = sigmaOrX0;
     x0 = x0OrStep;
@@ -187,9 +187,9 @@ export function barnes(
   throw new Error(`Unsupported Barnes method: ${String(method satisfies never)}`);
 }
 
-function isObservationArray(
-  value: PointInput | ReadonlyArray<BarnesObservation>,
-): value is ReadonlyArray<BarnesObservation> {
+function isSampleArray(
+  value: PointInput | ReadonlyArray<BarnesSample>,
+): value is ReadonlyArray<BarnesSample> {
   return (
     Array.isArray(value) &&
     value.length > 0 &&
@@ -200,65 +200,63 @@ function isObservationArray(
   );
 }
 
-function unpackObservations(observations: ReadonlyArray<BarnesObservation>): {
+function unpackSamples(samples: ReadonlyArray<BarnesSample>): {
   points: number[] | number[][];
   values: number[];
 } {
-  if (observations.length === 0) {
+  if (samples.length === 0) {
     return { points: [], values: [] };
   }
 
-  const firstPoint = observations[0].point;
+  const firstPoint = samples[0].point;
   const dim = typeof firstPoint === "number" ? 1 : firstPoint.length;
 
   if (dim < 1 || dim > 3) {
     throw new Error(`Barnes interpolation supports dimensions 1, 2 or 3, got ${dim}`);
   }
 
-  const values = new Array<number>(observations.length);
+  const values = new Array<number>(samples.length);
 
   if (dim === 1) {
-    const points = new Array<number>(observations.length);
-    for (let i = 0; i < observations.length; i++) {
-      const observation = observations[i];
-      const point = observation.point;
+    const points = new Array<number>(samples.length);
+    for (let i = 0; i < samples.length; i++) {
+      const sample = samples[i];
+      const point = sample.point;
 
       if (typeof point === "number") {
         points[i] = point;
       } else {
         if (point.length !== 1) {
           throw new Error(
-            `Inconsistent point dimension in observations, expected 1 but got ${point.length}`,
+            `Inconsistent point dimension in samples, expected 1 but got ${point.length}`,
           );
         }
         points[i] = point[0];
       }
 
-      values[i] = observation.value;
+      values[i] = sample.value;
     }
 
     return { points, values };
   }
 
-  const points = new Array<number[]>(observations.length);
-  for (let i = 0; i < observations.length; i++) {
-    const observation = observations[i];
-    const point = observation.point;
+  const points = new Array<number[]>(samples.length);
+  for (let i = 0; i < samples.length; i++) {
+    const sample = samples[i];
+    const point = sample.point;
 
     if (typeof point === "number") {
-      throw new Error(
-        `Inconsistent point dimension in observations, expected ${dim} but got scalar`,
-      );
+      throw new Error(`Inconsistent point dimension in samples, expected ${dim} but got scalar`);
     }
 
     if (point.length !== dim) {
       throw new Error(
-        `Inconsistent point dimension in observations, expected ${dim} but got ${point.length}`,
+        `Inconsistent point dimension in samples, expected ${dim} but got ${point.length}`,
       );
     }
 
     points[i] = Array.from(point);
-    values[i] = observation.value;
+    values[i] = sample.value;
   }
 
   return { points, values };

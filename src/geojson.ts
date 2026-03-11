@@ -9,7 +9,7 @@ import type {
   Position,
 } from "geojson";
 import type {
-  BarnesObservation,
+  BarnesSample,
   BarnesResult,
   GridContourOptions,
   GridContourThresholds,
@@ -25,18 +25,18 @@ export interface ContourLineProperties {
 }
 
 /**
- * Builds Barnes observations from a GeoJSON `FeatureCollection` of `Point` features.
+ * Builds Barnes samples from a GeoJSON `FeatureCollection` of `Point` features.
  *
  * @param featureCollection GeoJSON points with numeric values in `properties`.
- * @param valueProperty Property key to read the observation value from each feature.
- * @returns Observation array compatible with `barnes(observations, ...)`.
+ * @param valueProperty Property key to read the sample value from each feature.
+ * @returns Sample array compatible with `barnes(samples, ...)`.
  * @throws If a feature is not a `Point`, has inconsistent dimensions, or has a missing/non-numeric property.
  */
-export function observationsFromGeoJSON(
+export function samplesFromGeoJSON(
   featureCollection: FeatureCollection<Point, GeoJsonProperties>,
   valueProperty: string,
-): BarnesObservation[] {
-  const observations: BarnesObservation[] = [];
+): BarnesSample[] {
+  const samples: BarnesSample[] = [];
   let dim: 2 | 3 | undefined;
 
   for (let i = 0; i < featureCollection.features.length; i++) {
@@ -68,13 +68,13 @@ export function observationsFromGeoJSON(
       );
     }
 
-    observations.push({
+    samples.push({
       point: dim === 2 ? [coords[0], coords[1]] : [coords[0], coords[1], coords[2]],
       value: rawValue,
     });
   }
 
-  return observations;
+  return samples;
 }
 
 /**

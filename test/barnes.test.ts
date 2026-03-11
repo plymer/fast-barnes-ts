@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { FeatureCollection, GeoJsonProperties, Point } from "geojson";
 import {
   barnes,
-  fromObservations,
+  fromSamples,
   getHalfKernelSizeOpt,
   gridToIsobandsGeoJSON,
   gridToIsolinesGeoJSON,
-  observationsFromGeoJSON,
-  toObservations,
+  samplesFromGeoJSON,
+  toSamples,
   toNestedArray,
 } from "../src";
 
@@ -95,7 +95,7 @@ describe("barnes", () => {
     expect(getHalfKernelSizeOpt([1.0, 0.5], [0.25, 0.25], 4)).toEqual([3, 1]);
   });
 
-  it("accepts observation object input and matches classic API", () => {
+  it("accepts sample object input and matches classic API", () => {
     const points = [
       [0.2, 0.2],
       [1.2, 1.1],
@@ -105,14 +105,14 @@ describe("barnes", () => {
     ];
     const values = [1.0, 2.0, 0.5, 1.2, 1.7];
 
-    const observations = points.map((point, i) => ({ point, value: values[i] }));
+    const samples = points.map((point, i) => ({ point, value: values[i] }));
 
     const classic = barnes(points, values, 0.8, [0, 0], 0.25, [16, 12], {
       method: "optimized_convolution",
       numIter: 4,
     });
 
-    const objectInput = barnes(observations, 0.8, [0, 0], 0.25, [16, 12], {
+    const objectInput = barnes(samples, 0.8, [0, 0], 0.25, [16, 12], {
       method: "optimized_convolution",
       numIter: 4,
     });
@@ -128,13 +128,13 @@ describe("barnes", () => {
     }
   });
 
-  it("converts point/value arrays to observation objects", () => {
+  it("converts point/value arrays to sample objects", () => {
     const points2d = [
       [0.1, 0.2],
       [1.1, 1.2],
     ];
     const values2d = [10, 20];
-    const obs2d = toObservations(points2d, values2d);
+    const obs2d = toSamples(points2d, values2d);
 
     expect(obs2d).toEqual([
       { point: [0.1, 0.2], value: 10 },
@@ -143,7 +143,7 @@ describe("barnes", () => {
 
     const points1d = [1, 2, 3];
     const values1d = [5, 6, 7];
-    const obs1d = toObservations(points1d, values1d);
+    const obs1d = toSamples(points1d, values1d);
 
     expect(obs1d).toEqual([
       { point: 1, value: 5 },
@@ -152,13 +152,13 @@ describe("barnes", () => {
     ]);
   });
 
-  it("converts observation objects back to point/value arrays", () => {
+  it("converts sample objects back to point/value arrays", () => {
     const obs2d = [
       { point: [0.1, 0.2], value: 10 },
       { point: [1.1, 1.2], value: 20 },
     ] as const;
 
-    const back2d = fromObservations(obs2d);
+    const back2d = fromSamples(obs2d);
     expect(back2d.points).toEqual([
       [0.1, 0.2],
       [1.1, 1.2],
@@ -171,12 +171,12 @@ describe("barnes", () => {
       { point: 3, value: 7 },
     ] as const;
 
-    const back1d = fromObservations(obs1d);
+    const back1d = fromSamples(obs1d);
     expect(back1d.points).toEqual([1, 2, 3]);
     expect(back1d.values).toEqual([5, 6, 7]);
   });
 
-  it("builds observations from GeoJSON FeatureCollection and property key", () => {
+  it("builds samples from GeoJSON FeatureCollection and property key", () => {
     const fc: FeatureCollection<Point, GeoJsonProperties> = {
       type: "FeatureCollection",
       features: [
@@ -198,14 +198,14 @@ describe("barnes", () => {
       ],
     };
 
-    const observations = observationsFromGeoJSON(fc, "pressure");
-    expect(observations).toEqual([
+    const samples = samplesFromGeoJSON(fc, "pressure");
+    expect(samples).toEqual([
       { point: [0.2, 0.2], value: 1.0 },
       { point: [1.2, 1.1], value: 2.0 },
       { point: [2.5, 0.7], value: 0.5 },
     ]);
 
-    const result = barnes(observations, 0.8, [0, 0], 0.5, [8, 6]);
+    const result = barnes(samples, 0.8, [0, 0], 0.5, [8, 6]);
     expect(result.dimension).toBe(2);
     expect(result.shape).toEqual([8, 6]);
   });
@@ -222,7 +222,7 @@ describe("barnes", () => {
       ],
     };
 
-    expect(() => observationsFromGeoJSON(fc, "pressure")).toThrow();
+    expect(() => samplesFromGeoJSON(fc, "pressure")).toThrow();
   });
 
   it("converts interpolated grid to GeoJSON isobands and isolines", () => {

@@ -1,17 +1,17 @@
 export {
   barnes,
-  fromObservations,
+  fromSamples,
   getHalfKernelSize,
   getHalfKernelSizeOpt,
   getSigmaEffective,
   getTailValue,
-  toObservations,
+  toSamples,
   toNestedArray,
 } from "./barnes";
-export { gridToIsobandsGeoJSON, gridToIsolinesGeoJSON, observationsFromGeoJSON } from "./geojson";
+export { gridToIsobandsGeoJSON, gridToIsolinesGeoJSON, samplesFromGeoJSON } from "./geojson";
 
 export type {
-  BarnesObservation,
+  BarnesSample,
   BarnesMethod,
   BarnesOptions,
   BarnesResult,
