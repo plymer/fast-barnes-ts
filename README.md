@@ -2,7 +2,7 @@
 
 Fast Barnes interpolation for irregularly spaced 1D/2D/3D samples, implemented in TypeScript for Node.js and browser bundles.
 
-This package ports the fast convolution-based approach from MeteoSwiss `fast-barnes-py` into an npm-friendly TypeScript API.
+This package ports the [fast convolution-based approach from MeteoSwiss `fast-barnes-py`](https://github.com/MeteoSwiss/fast-barnes-py) into an npm-friendly TypeScript API.
 
 ## Features
 
