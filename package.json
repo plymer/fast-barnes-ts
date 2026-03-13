@@ -15,13 +15,13 @@
     "meteorology",
     "spatial"
   ],
-  "homepage": "https://github.com/ryan/fast-barnes-ts",
+  "homepage": "https://github.com/plymer/fast-barnes-ts",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ryan/fast-barnes-ts.git"
+    "url": "git+https://github.com/plymer/fast-barnes-ts.git"
   },
-  "license": "MIT",
-  "author": "Ryan",
+  "license": "BSD-3-Clause",
+  "author": "Bruno Zuercher, Ryan Pimiskern",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
