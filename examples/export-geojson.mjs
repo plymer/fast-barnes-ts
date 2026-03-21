@@ -49,7 +49,8 @@ async function main() {
   const { points, values } = makeSyntheticData(600, x0[0], x0[1], 20.0, 12.0);
 
   const samples = toSamples(points, values);
-  const { points: pointsRoundTrip, values: valuesRoundTrip } = fromSamples(samples);
+  const { points: pointsRoundTrip, values: valuesRoundTrip } =
+    fromSamples(samples);
 
   const field = barnes(pointsRoundTrip, valuesRoundTrip, 0.9, x0, step, size, {
     method: "optimized_convolution",
@@ -65,7 +66,6 @@ async function main() {
   const isolines = gridToIsolinesGeoJSON(field, x0, step, {
     thresholds: 12,
     smooth: true,
-    outerRingsOnly: true,
   });
 
   const __filename = fileURLToPath(import.meta.url);

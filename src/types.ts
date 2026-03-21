@@ -12,7 +12,10 @@ export interface BarnesResult {
   dimension: 1 | 2 | 3;
 }
 
-export type PointInput = number[] | ArrayLike<number> | ReadonlyArray<ReadonlyArray<number>>;
+export type PointInput =
+  | number[]
+  | ArrayLike<number>
+  | ReadonlyArray<ReadonlyArray<number>>;
 export type ValueInput = ArrayLike<number>;
 export type ScalarOrVector = number | ArrayLike<number>;
 export type SizeInput = number | ReadonlyArray<number>;
@@ -26,13 +29,19 @@ export interface GridContourOptions {
   spacing: number;
   base?: number;
   smooth?: boolean;
-  outerRingsOnly?: boolean;
 }
 
-export type GeoJSONInterpolationMode = "isoband" | "isobands" | "isoline" | "isolines";
+export interface GeoJSONSphericalOptions {
+  center?: readonly [number, number];
+  standardParallels?: readonly [number, number];
+  lambertPadding?: number;
+}
+
+export type GeoJSONInterpolationMode = "isobands" | "isolines";
 
 export interface InterpolateGeoJSONOptions {
   debug?: boolean;
+  coordinateMode?: "euclidean" | "spherical";
   sigma?: ScalarOrVector;
   x0?: ScalarOrVector;
   step?: ScalarOrVector;
@@ -40,5 +49,6 @@ export interface InterpolateGeoJSONOptions {
   resolution?: number | readonly [number, number];
   padding?: number;
   barnesOptions?: BarnesOptions;
+  sphericalOptions?: GeoJSONSphericalOptions;
   contourOptions: GridContourOptions;
 }

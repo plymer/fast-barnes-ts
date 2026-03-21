@@ -48,7 +48,11 @@ const grid = toNestedArray(field); // grid[y][x]
 ## GeoJSON contours
 
 ```ts
-import { barnes, gridToIsobandsGeoJSON, gridToIsolinesGeoJSON } from "fast-barnes-ts";
+import {
+  barnes,
+  gridToIsobandsGeoJSON,
+  gridToIsolinesGeoJSON,
+} from "fast-barnes-ts";
 
 const field = barnes(points, values, 1.0, x0, step, size, {
   method: "optimized_convolution",
@@ -61,7 +65,6 @@ const isobands = gridToIsobandsGeoJSON(field, x0, step, {
 
 const isolines = gridToIsolinesGeoJSON(field, x0, step, {
   spacing: 1,
-  outerRingsOnly: true,
 });
 ```
 
@@ -197,13 +200,21 @@ const isobands = interpolateGeoJSON(featureCollection, "pressure", "isoband", {
   contourOptions: { spacing: 1 },
 });
 
-const pressureIsolines = interpolateGeoJSON(featureCollection, "pressure", "isoline", {
-  debug: true,
-  contourOptions: {
-    spacing: 4,
-    base: 1024,
+const pressureIsolines = interpolateGeoJSON(
+  featureCollection,
+  "pressure",
+  "isoline",
+  {
+    debug: true,
+    // Default mode is "spherical" (Lambert conformal handling for lon/lat domains).
+    // Set "euclidean" to use plain plate-carree distance behavior.
+    coordinateMode: "spherical",
+    contourOptions: {
+      spacing: 4,
+      base: 1024,
+    },
   },
-});
+);
 ```
 
 `contourOptions.spacing` and `contourOptions.base` generate levels at:
@@ -216,10 +227,12 @@ const pressureIsolines = interpolateGeoJSON(featureCollection, "pressure", "isol
 Set `debug: true` in `interpolateGeoJSON` options to print verbose process logs
 (input feature count, extracted sample count, derived grid parameters, and output feature count).
 
+If `sigma` is omitted, a conservative default based on grid spacing is used.
+
 ## Notes
 
 - 2D output indexing follows `[y, x]`; 3D follows `[z, y, x]`.
-- This package focuses on Euclidean interpolation. Spherical `S²` support from `fast-barnes-py` is not included in this initial release.
+- `interpolateGeoJSON` defaults to spherical lon/lat handling via Lambert conformal projection. Use `coordinateMode: "euclidean"` to force planar behavior.
 
 ## Development
 

@@ -21,6 +21,7 @@ export type {
   BarnesOptions,
   BarnesResult,
   GeoJSONInterpolationMode,
+  GeoJSONSphericalOptions,
   GridContourOptions,
   InterpolateGeoJSONOptions,
   PointInput,

@@ -35,7 +35,7 @@ npm run example:local:interpolate
 Optional environment variables:
 
 - `INPUT_GEOJSON` (default: `examples/local/data/input.geojson`)
-- `VALUE_FIELD` (default: `pressure`)
+- `VALUE_FIELD` (default: `slp`)
 - `MODE` (`isoline|isolines|isoband|isobands`, default: `isoline`)
 - `SPACING` (default: `4`)
 - `BASE` (default: `1024`)

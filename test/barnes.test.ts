@@ -59,7 +59,9 @@ describe("barnes", () => {
       maxDist: 3.5,
     });
 
-    const naive = barnes(points, values, sigma, x0, step, size, { method: "naive" });
+    const naive = barnes(points, values, sigma, x0, step, size, {
+      method: "naive",
+    });
 
     let sq = 0;
     let n = 0;
@@ -184,22 +186,22 @@ describe("barnes", () => {
         {
           type: "Feature",
           geometry: { type: "Point", coordinates: [0.2, 0.2] },
-          properties: { pressure: 1.0 },
+          properties: { slp: 1.0 },
         },
         {
           type: "Feature",
           geometry: { type: "Point", coordinates: [1.2, 1.1] },
-          properties: { pressure: 2.0 },
+          properties: { slp: 2.0 },
         },
         {
           type: "Feature",
           geometry: { type: "Point", coordinates: [2.5, 0.7] },
-          properties: { pressure: 0.5 },
+          properties: { slp: 0.5 },
         },
       ],
     };
 
-    const samples = samplesFromGeoJSON(fc, "pressure");
+    const samples = samplesFromGeoJSON(fc, "slp");
     expect(samples).toEqual([
       { point: [0.2, 0.2], value: 1.0 },
       { point: [1.2, 1.1], value: 2.0 },
@@ -223,12 +225,12 @@ describe("barnes", () => {
         {
           type: "Feature",
           geometry: { type: "Point", coordinates: [0.4, 0.6] },
-          properties: { pressure: 1012 },
+          properties: { slp: 1012 },
         },
       ],
     };
 
-    const samples = samplesFromGeoJSON(fc, "pressure");
+    const samples = samplesFromGeoJSON(fc, "slp");
     expect(samples).toEqual([{ point: [0.4, 0.6], value: 1012 }]);
   });
 
@@ -239,12 +241,12 @@ describe("barnes", () => {
         {
           type: "Feature",
           geometry: { type: "Point", coordinates: [0.2, 0.2] },
-          properties: { pressure: "bad" },
+          properties: { slp: "bad" },
         },
       ],
     };
 
-    expect(() => samplesFromGeoJSON(fc, "pressure")).toThrow();
+    expect(() => samplesFromGeoJSON(fc, "slp")).toThrow();
   });
 
   it("interpolates GeoJSON directly to isolines", () => {
@@ -254,27 +256,27 @@ describe("barnes", () => {
         {
           type: "Feature",
           geometry: { type: "Point", coordinates: [0.2, 0.2] },
-          properties: { pressure: 1.0 },
+          properties: { slp: 1.0 },
         },
         {
           type: "Feature",
           geometry: { type: "Point", coordinates: [1.2, 1.1] },
-          properties: { pressure: 2.0 },
+          properties: { slp: 2.0 },
         },
         {
           type: "Feature",
           geometry: { type: "Point", coordinates: [2.5, 0.7] },
-          properties: { pressure: 0.5 },
+          properties: { slp: 0.5 },
         },
         {
           type: "Feature",
           geometry: { type: "Point", coordinates: [0.4, 1.7] },
-          properties: { pressure: 1.4 },
+          properties: { slp: 1.4 },
         },
       ],
     };
 
-    const lines = interpolateGeoJSON(fc, "pressure", "isoline", {
+    const lines = interpolateGeoJSON(fc, "slp", "isolines", {
       resolution: 64,
       contourOptions: { spacing: 0.25, base: 0 },
     });
@@ -291,27 +293,27 @@ describe("barnes", () => {
         {
           type: "Feature",
           geometry: { type: "Point", coordinates: [0.2, 0.2] },
-          properties: { pressure: 1.0 },
+          properties: { slp: 1.0 },
         },
         {
           type: "Feature",
           geometry: { type: "Point", coordinates: [1.2, 1.1] },
-          properties: { pressure: 2.0 },
+          properties: { slp: 2.0 },
         },
         {
           type: "Feature",
           geometry: { type: "Point", coordinates: [2.5, 0.7] },
-          properties: { pressure: 0.5 },
+          properties: { slp: 0.5 },
         },
         {
           type: "Feature",
           geometry: { type: "Point", coordinates: [0.4, 1.7] },
-          properties: { pressure: 1.4 },
+          properties: { slp: 1.4 },
         },
       ],
     };
 
-    const bands = interpolateGeoJSON(fc, "pressure", "isoband", {
+    const bands = interpolateGeoJSON(fc, "slp", "isobands", {
       resolution: [48, 40],
       contourOptions: { spacing: 0.25, base: 0 },
     });
@@ -321,6 +323,48 @@ describe("barnes", () => {
     expect(bands.features[0].geometry.type).toBe("MultiPolygon");
   });
 
+  it("uses spherical coordinate mode by default and supports euclidean override", () => {
+    const fc: FeatureCollection<Point, GeoJsonProperties> = {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [-123.1, 49.3] },
+          properties: { slp: 1012 },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [-74.0, 40.7] },
+          properties: { slp: 1008 },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [-97.0, 35.5] },
+          properties: { slp: 1016 },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [-80.2, 25.8] },
+          properties: { slp: 1010 },
+        },
+      ],
+    };
+
+    const sphericalDefault = interpolateGeoJSON(fc, "slp", "isolines", {
+      resolution: [96, 64],
+      contourOptions: { spacing: 1, base: 1006 },
+    });
+
+    const euclidean = interpolateGeoJSON(fc, "slp", "isolines", {
+      coordinateMode: "euclidean",
+      resolution: [96, 64],
+      contourOptions: { spacing: 1, base: 1006 },
+    });
+
+    expect(sphericalDefault.features.length).toBeGreaterThan(0);
+    expect(euclidean.features.length).toBeGreaterThan(0);
+  });
+
   it("supports contour spacing and base in contourOptions", () => {
     const fc: FeatureCollection<Point, GeoJsonProperties> = {
       type: "FeatureCollection",
@@ -328,27 +372,27 @@ describe("barnes", () => {
         {
           type: "Feature",
           geometry: { type: "Point", coordinates: [0.0, 0.0] },
-          properties: { pressure: 1018 },
+          properties: { slp: 1018 },
         },
         {
           type: "Feature",
           geometry: { type: "Point", coordinates: [1.0, 0.0] },
-          properties: { pressure: 1023 },
+          properties: { slp: 1023 },
         },
         {
           type: "Feature",
           geometry: { type: "Point", coordinates: [0.0, 1.0] },
-          properties: { pressure: 1029 },
+          properties: { slp: 1029 },
         },
         {
           type: "Feature",
           geometry: { type: "Point", coordinates: [1.0, 1.0] },
-          properties: { pressure: 1034 },
+          properties: { slp: 1034 },
         },
       ],
     };
 
-    const lines = interpolateGeoJSON(fc, "pressure", "isoline", {
+    const lines = interpolateGeoJSON(fc, "slp", "isolines", {
       resolution: [64, 64],
       sigma: 0.35,
       contourOptions: {
@@ -399,7 +443,6 @@ describe("barnes", () => {
     const lines = gridToIsolinesGeoJSON(grid, x0, step, {
       spacing: 0.25,
       base: 0,
-      outerRingsOnly: true,
     });
 
     expect(lines.type).toBe("FeatureCollection");

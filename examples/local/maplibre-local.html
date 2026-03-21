@@ -3,105 +3,71 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fast-barnes-ts • Local Interactive Viewer</title>
-    <link href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" rel="stylesheet" />
+    <title>fast-barnes-ts Local Viewer</title>
+    <link
+      href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css"
+      rel="stylesheet"
+    />
     <style>
       html,
       body,
       #map {
+        margin: 0;
         width: 100%;
         height: 100%;
-        margin: 0;
-        padding: 0;
+        font-family: sans-serif;
       }
+
       .panel {
         position: absolute;
         top: 12px;
         left: 12px;
         z-index: 10;
-        background: rgba(255, 255, 255, 0.96);
-        border-radius: 10px;
-        padding: 10px 12px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
-        max-width: 360px;
-        font-family:
-          system-ui,
-          -apple-system,
-          Segoe UI,
-          Roboto,
-          Ubuntu,
-          Cantarell,
-          Noto Sans,
-          Arial,
-          sans-serif;
+        max-width: 340px;
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        padding: 12px;
       }
+
       .panel h1 {
         margin: 0 0 8px;
-        font-size: 15px;
+        font-size: 16px;
       }
-      .panel p {
-        margin: 6px 0;
-        font-size: 12px;
-        line-height: 1.35;
-      }
+
       .controls {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 6px;
-        margin-top: 8px;
+        gap: 8px;
       }
-      .controls label {
-        display: grid;
-        gap: 2px;
-        font-size: 12px;
-      }
+
       .controls .full {
         grid-column: 1 / -1;
       }
+
+      label {
+        font-size: 12px;
+        display: grid;
+        gap: 4px;
+      }
+
       input,
       select,
       button {
         font: inherit;
+        padding: 6px;
       }
-      input[type="text"],
-      input[type="number"],
-      select {
-        border: 1px solid #cbd5e1;
-        border-radius: 6px;
-        padding: 4px 6px;
-      }
-      button {
-        border: 1px solid #cbd5e1;
-        border-radius: 6px;
-        padding: 6px 8px;
-        background: #f8fafc;
-        cursor: pointer;
-      }
-      button:hover {
-        background: #f1f5f9;
-      }
-      .status {
+
+      #status {
         margin-top: 8px;
         font-size: 12px;
-        color: #334155;
-      }
-      code {
-        font-family:
-          ui-monospace,
-          SFMono-Regular,
-          Menlo,
-          Monaco,
-          Consolas,
-          Liberation Mono,
-          monospace;
       }
     </style>
   </head>
   <body>
     <div id="map"></div>
     <div class="panel">
-      <h1>Local Interactive Viewer</h1>
-      <p>Choose a local GeoJSON file with Point features, then interpolation runs in-browser.</p>
+      <h1>Local Viewer</h1>
       <div class="controls">
         <label class="full"
           >Input GeoJSON
@@ -111,12 +77,10 @@
             accept=".json,.geojson,application/geo+json,application/json"
           />
         </label>
-
         <label
           >Value field
-          <input id="fieldInput" type="text" value="pressure" />
+          <input id="fieldInput" type="text" value="slp" />
         </label>
-
         <label
           >Mode
           <select id="modeInput">
@@ -124,43 +88,41 @@
             <option value="isoband">isoband</option>
           </select>
         </label>
-
         <label
           >Spacing
           <input id="spacingInput" type="number" step="any" min="0" value="4" />
         </label>
-
         <label
           >Base
           <input id="baseInput" type="number" step="any" value="1024" />
         </label>
-
         <label
           >Resolution X
-          <input id="resXInput" type="number" min="2" step="1" value="128" />
+          <input id="resXInput" type="number" step="1" min="2" value="128" />
         </label>
-
         <label
           >Resolution Y
-          <input id="resYInput" type="number" min="2" step="1" value="128" />
+          <input id="resYInput" type="number" step="1" min="2" value="128" />
         </label>
-
         <label
           >Sigma (optional)
-          <input id="sigmaInput" type="number" step="any" min="0" placeholder="auto" />
+          <input
+            id="sigmaInput"
+            type="number"
+            step="any"
+            min="0"
+            placeholder="auto"
+          />
         </label>
-
         <label style="align-items: center; grid-template-columns: auto 1fr"
-          ><input id="debugInput" type="checkbox" /> Debug logging</label
+          ><input id="debugInput" type="checkbox" /> Debug logs</label
         >
-
         <label style="align-items: center; grid-template-columns: auto 1fr"
-          ><input id="autoRunInput" type="checkbox" checked /> Auto-run on changes</label
+          ><input id="autoRunInput" type="checkbox" checked /> Auto-run</label
         >
-
         <button id="runButton" class="full">Run interpolation</button>
       </div>
-      <div id="status" class="status">Loading…</div>
+      <div id="status">Choose a local GeoJSON file to begin.</div>
     </div>
 
     <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
@@ -180,26 +142,26 @@
       const autoRunInput = document.getElementById("autoRunInput");
       const runButton = document.getElementById("runButton");
 
-      let loadedFeatureCollection = null;
-
       const map = new maplibregl.Map({
         container: "map",
         style: "https://demotiles.maplibre.org/style.json",
-        center: [0, 0],
-        zoom: 2,
+        center: [-98, 39],
+        zoom: 3,
       });
-      map.addControl(new maplibregl.NavigationControl(), "top-right");
 
       const RESULT_SOURCE = "interpolation-result";
       const BAND_LAYER = "interpolation-band";
       const LINE_LAYER = "interpolation-line";
 
+      let loadedFeatureCollection = null;
+      let pendingRun = null;
+
       function computeBounds(fc) {
         if (!fc) return null;
-        let minX = Infinity;
-        let minY = Infinity;
-        let maxX = -Infinity;
-        let maxY = -Infinity;
+        let minX = Number.POSITIVE_INFINITY;
+        let minY = Number.POSITIVE_INFINITY;
+        let maxX = Number.NEGATIVE_INFINITY;
+        let maxY = Number.NEGATIVE_INFINITY;
 
         function visit(coords) {
           if (!Array.isArray(coords)) return;
@@ -207,15 +169,16 @@
             const x = coords[0];
             const y = coords[1];
             if (x < minX) minX = x;
-            if (y < minY) minY = y;
             if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
             if (y > maxY) maxY = y;
             return;
           }
           for (const item of coords) visit(item);
         }
 
-        for (const feature of fc.features || []) visit(feature?.geometry?.coordinates);
+        for (const feature of fc.features || [])
+          visit(feature?.geometry?.coordinates);
         if (!Number.isFinite(minX)) return null;
         return [
           [minX, minY],
@@ -242,7 +205,7 @@
         map.getSource(RESULT_SOURCE).setData(result);
         clearResultLayers();
 
-        if (mode === "isoband") {
+        if (mode.startsWith("isoband")) {
           map.addLayer({
             id: BAND_LAYER,
             type: "fill",
@@ -251,19 +214,16 @@
               "fill-color": [
                 "interpolate",
                 ["linear"],
-                ["coalesce", ["get", "value"], 0],
-                -3,
-                "#313695",
-                -1,
-                "#4575b4",
-                0,
-                "#74add1",
-                1,
-                "#fdae61",
-                3,
-                "#a50026",
+                ["get", "value"],
+                980,
+                "#1d4ed8",
+                1020,
+                "#10b981",
+                1060,
+                "#f97316",
               ],
-              "fill-opacity": 0.45,
+              "fill-opacity": 0.5,
+              "fill-outline-color": "#111827",
             },
           });
         } else {
@@ -273,26 +233,19 @@
             source: RESULT_SOURCE,
             paint: {
               "line-color": "#111827",
-              "line-width": 1.2,
-              "line-opacity": 0.9,
+              "line-width": 1.25,
             },
           });
-        }
-
-        const bounds = computeBounds(result);
-        if (bounds) {
-          map.fitBounds(bounds, { padding: 40, duration: 0 });
         }
       }
 
       function parseNumber(inputEl, name, fallback = undefined) {
-        const value = inputEl.value.trim();
-        if (value === "") return fallback;
-        const parsed = Number(value);
-        if (!Number.isFinite(parsed)) {
-          throw new Error(`${name} must be a valid number`);
-        }
-        return parsed;
+        const raw = String(inputEl.value ?? "").trim();
+        if (!raw) return fallback;
+        const n = Number(raw);
+        if (!Number.isFinite(n))
+          throw new Error(`${name} must be a finite number`);
+        return n;
       }
 
       function readControls() {
@@ -301,12 +254,12 @@
 
         const mode = modeInput.value;
         const spacing = parseNumber(spacingInput, "Spacing");
-        if (!(spacing > 0)) throw new Error("Spacing must be > 0");
-
         const base = parseNumber(baseInput, "Base", 0);
         const resX = Math.trunc(parseNumber(resXInput, "Resolution X"));
         const resY = Math.trunc(parseNumber(resYInput, "Resolution Y"));
-        if (resX < 2 || resY < 2) throw new Error("Resolution values must be >= 2");
+        if (resX < 2 || resY < 2)
+          throw new Error("Resolution values must be >= 2");
+        if (!(spacing > 0)) throw new Error("Spacing must be > 0");
 
         const sigma = parseNumber(sigmaInput, "Sigma", undefined);
 
@@ -321,22 +274,26 @@
               spacing,
               base,
               smooth: true,
-              outerRingsOnly: true,
             },
           },
         };
       }
 
-      async function runInterpolation() {
+      function runInterpolation() {
         if (!loadedFeatureCollection) {
-          statusEl.textContent = "Choose a local GeoJSON file first.";
+          statusEl.textContent = "Load a GeoJSON file first.";
           return;
         }
 
         try {
           const { field, mode, options } = readControls();
           const start = performance.now();
-          const result = interpolateGeoJSON(loadedFeatureCollection, field, mode, options);
+          const result = interpolateGeoJSON(
+            loadedFeatureCollection,
+            field,
+            mode,
+            options,
+          );
           renderResult(result, mode);
           const elapsedMs = (performance.now() - start).toFixed(1);
           statusEl.textContent = `Interpolated ${result.features.length} features in ${elapsedMs} ms (${mode}).`;
@@ -345,58 +302,62 @@
         }
       }
 
-      let scheduled = null;
       function scheduleRun() {
         if (!autoRunInput.checked) return;
-        if (scheduled) clearTimeout(scheduled);
-        scheduled = setTimeout(() => {
-          scheduled = null;
+        if (pendingRun) clearTimeout(pendingRun);
+        pendingRun = setTimeout(() => {
+          pendingRun = null;
           runInterpolation();
-        }, 180);
+        }, 150);
       }
 
       async function loadSelectedFile(file) {
         const text = await file.text();
         const parsed = JSON.parse(text);
-        if (!parsed || parsed.type !== "FeatureCollection" || !Array.isArray(parsed.features)) {
+        if (
+          !parsed ||
+          parsed.type !== "FeatureCollection" ||
+          !Array.isArray(parsed.features)
+        ) {
           throw new Error("Input file must be a GeoJSON FeatureCollection");
         }
+
         loadedFeatureCollection = parsed;
-        const count = parsed.features.length;
-        console.info("[fast-barnes-ts][local-viewer] loaded input file", {
-          fileName: file.name,
-          inputFeatureCount: count,
-        });
-        statusEl.textContent = `Loaded file: ${file.name} (${count} input features)`;
+        const bounds = computeBounds(parsed);
+        if (bounds) {
+          map.fitBounds(bounds, { padding: 40, duration: 0 });
+        }
+
+        statusEl.textContent = `Loaded ${parsed.features.length} features from ${file.name}.`;
+        scheduleRun();
       }
 
       fileInput.addEventListener("change", async (event) => {
         const file = event.target.files?.[0];
         if (!file) return;
-
         try {
           await loadSelectedFile(file);
-          scheduleRun();
         } catch (err) {
-          loadedFeatureCollection = null;
           statusEl.textContent = String(err?.message || err);
         }
       });
 
-      runButton.addEventListener("click", () => runInterpolation());
+      runButton.addEventListener("click", runInterpolation);
 
-      [fieldInput, modeInput, spacingInput, baseInput, resXInput, resYInput, sigmaInput].forEach(
-        (el) => {
-          el.addEventListener("input", scheduleRun);
-          el.addEventListener("change", scheduleRun);
-        },
-      );
+      [
+        fieldInput,
+        modeInput,
+        spacingInput,
+        baseInput,
+        resXInput,
+        resYInput,
+        sigmaInput,
+      ].forEach((el) => {
+        el.addEventListener("input", scheduleRun);
+        el.addEventListener("change", scheduleRun);
+      });
 
       debugInput.addEventListener("change", scheduleRun);
-
-      map.on("load", () => {
-        statusEl.textContent = "Choose a local GeoJSON file to begin.";
-      });
     </script>
   </body>
 </html>
