@@ -18,7 +18,7 @@ import type {
   ScalarOrVector,
   Tuple2DWithValue,
 } from "./types";
-import { barnes, tupleArrayToBarnesSamples } from "./barnes";
+import { barnes } from "./barnes";
 
 export interface ContourProperties {
   value: number;
@@ -34,7 +34,7 @@ export interface ContourProperties {
  *
  * @param featureCollection GeoJSON points with numeric values in `properties`.
  * @param valueProperty Property key to read the sample value from each feature.
- * @param mode Output contour mode (`"isoband" | "isobands" | "isoline" | "isolines"`).
+ * @param mode Output contour mode (`"isobands" | "isolines"`).
  * @param options Optional interpolation and contour settings.
  * @returns GeoJSON isobands (`MultiPolygon`) or isolines (`LineString`).
  */

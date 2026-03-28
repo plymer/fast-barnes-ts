@@ -1,6 +1,5 @@
 import type {
   BarnesSample,
-  BarnesMethod,
   BarnesOptions,
   BarnesResult,
   PointInput,
