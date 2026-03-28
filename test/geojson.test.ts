@@ -4,6 +4,7 @@ import {
   gridToIsobandsGeoJSON,
   gridToIsolinesGeoJSON,
   handleEuclideanMode,
+  handleSphericalMode,
   interpolateGeoJSON,
   samplesFromGeoJSON,
 } from "../src/geojson";
@@ -314,6 +315,24 @@ describe("geojson", () => {
     expect(lines.features[0].geometry.type).toBe("LineString");
   });
 
+  it("can accept tuple array samples directly for Spherical GeoJSON interpolation", () => {
+    const samples: Tuple2DWithValue[] = [
+      [0.2, 0.2, 1.0],
+      [1.2, 1.1, 2.0],
+      [2.5, 0.7, 0.5],
+      [0.4, 1.7, 1.4],
+    ];
+
+    const lines = handleSphericalMode(samples, "isolines", {
+      resolution: 64,
+      contourOptions: { spacing: 0.25, base: 0 },
+    });
+
+    expect(lines.type).toBe("FeatureCollection");
+    expect(lines.features.length).toBeGreaterThan(0);
+    expect(lines.features[0].geometry.type).toBe("LineString");
+  });
+
   it("can interpolate tuple arrays the same was as GeoJSON feature collections", () => {
     const samples: Tuple2DWithValue[] = [
       [0.2, 0.2, 1.0],
@@ -334,7 +353,7 @@ describe("geojson", () => {
     const linesFromFC = interpolateGeoJSON(
       featureCollection,
       "value",
-      "isolines",
+      "isobands",
       {
         resolution: 64,
         coordinateMode: "euclidean",
@@ -344,7 +363,7 @@ describe("geojson", () => {
 
     const tupleLines = handleEuclideanMode(
       samples,
-      "isolines",
+      "isobands",
       {
         resolution: 64,
         coordinateMode: "euclidean",

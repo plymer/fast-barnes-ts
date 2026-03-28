@@ -252,16 +252,53 @@ export function handleEuclideanMode(
   return gridToIsobandsGeoJSON(grid, x0, step, options.contourOptions);
 }
 
-function handleSphericalMode(
+export function handleSphericalMode(
+  samples: Tuple2DWithValue[],
+  mode: GeoJSONInterpolationMode,
+  options: InterpolateGeoJSONOptions,
+):
+  | FeatureCollection<LineString, ContourProperties>
+  | FeatureCollection<MultiPolygon, ContourProperties>;
+export function handleSphericalMode(
   points: number[][],
   values: number[],
   mode: GeoJSONInterpolationMode,
   options: InterpolateGeoJSONOptions,
 ):
   | FeatureCollection<LineString, ContourProperties>
+  | FeatureCollection<MultiPolygon, ContourProperties>;
+export function handleSphericalMode(
+  pointsOrSamples: number[][] | Tuple2DWithValue[],
+  valuesOrMode: number[] | GeoJSONInterpolationMode,
+  modeOrOptions: GeoJSONInterpolationMode | InterpolateGeoJSONOptions,
+  options?: InterpolateGeoJSONOptions,
+):
+  | FeatureCollection<LineString, ContourProperties>
   | FeatureCollection<MultiPolygon, ContourProperties> {
-  const [rx, ry] = normalizeResolution(options.resolution);
-  const projection = createLambertProjection(points, options.sphericalOptions);
+  let points;
+  let values;
+  let mode;
+  let geoJsonOptions;
+
+  if (typeof valuesOrMode === "string") {
+    // signature with samples
+    mode = valuesOrMode as GeoJSONInterpolationMode;
+    geoJsonOptions = modeOrOptions as InterpolateGeoJSONOptions;
+    points = (pointsOrSamples as Tuple2DWithValue[]).map((t) => [t[0], t[1]]);
+    values = (pointsOrSamples as Tuple2DWithValue[]).map((t) => t[2]);
+  } else {
+    // signature with separate points and values
+    points = pointsOrSamples as number[][];
+    values = valuesOrMode as number[];
+    mode = modeOrOptions as GeoJSONInterpolationMode;
+    geoJsonOptions = options as InterpolateGeoJSONOptions;
+  }
+
+  const [rx, ry] = normalizeResolution(geoJsonOptions.resolution);
+  const projection = createLambertProjection(
+    points,
+    geoJsonOptions.sphericalOptions,
+  );
 
   if (!projection) {
     throw new Error(
@@ -272,7 +309,9 @@ function handleSphericalMode(
   const mappedPoints = points.map((p) => lambertToMap(projection, p[0], p[1]));
 
   const padding =
-    options.sphericalOptions?.lambertPadding ?? options.padding ?? 0.05;
+    geoJsonOptions.sphericalOptions?.lambertPadding ??
+    geoJsonOptions.padding ??
+    0.05;
   if (!(padding >= 0)) {
     throw new Error(`lambertPadding/padding must be >= 0, got ${padding}`);
   }
@@ -299,7 +338,7 @@ function handleSphericalMode(
     spanY / Math.max(1, size[1] - 1),
   ];
 
-  const sigma = options.sigma ?? Math.max(stepLam[0], stepLam[1]) * 2.0;
+  const sigma = geoJsonOptions.sigma ?? Math.max(stepLam[0], stepLam[1]) * 2.0;
 
   const grid = barnes(
     mappedPoints,
@@ -308,7 +347,7 @@ function handleSphericalMode(
     x0Lam,
     stepLam,
     size,
-    options.barnesOptions ?? {},
+    geoJsonOptions.barnesOptions ?? {},
   );
 
   if (mode === "isolines") {
@@ -316,7 +355,7 @@ function handleSphericalMode(
       grid,
       x0Lam,
       stepLam,
-      options.contourOptions,
+      geoJsonOptions.contourOptions,
     );
     const linesLonLat = transformIsolinesFromLambert(linesLambert, projection);
     return linesLonLat;
@@ -326,7 +365,7 @@ function handleSphericalMode(
     grid,
     x0Lam,
     stepLam,
-    options.contourOptions,
+    geoJsonOptions.contourOptions,
   );
   return transformIsobandsFromLambert(bandsLambert, projection);
 }
