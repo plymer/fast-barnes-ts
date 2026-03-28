@@ -3,10 +3,12 @@ import { barnes } from "../src/barnes";
 import {
   gridToIsobandsGeoJSON,
   gridToIsolinesGeoJSON,
+  handleEuclideanMode,
   interpolateGeoJSON,
   samplesFromGeoJSON,
 } from "../src/geojson";
 import { FeatureCollection, GeoJsonProperties, Point } from "geojson";
+import { Tuple2DWithValue } from "../src/types";
 
 function lcg(seed: number): () => number {
   let state = seed >>> 0;
@@ -286,5 +288,75 @@ describe("geojson", () => {
     expect(lines.type).toBe("FeatureCollection");
     expect(lines.features.length).toBeGreaterThan(0);
     expect(lines.features[0].geometry.type).toBe("LineString");
+  });
+
+  it("can accept tuple array samples directly for Euclidian GeoJSON interpolation", () => {
+    const samples: Tuple2DWithValue[] = [
+      [0.2, 0.2, 1.0],
+      [1.2, 1.1, 2.0],
+      [2.5, 0.7, 0.5],
+      [0.4, 1.7, 1.4],
+    ];
+
+    const lines = handleEuclideanMode(
+      samples,
+      "isolines",
+      {
+        resolution: 64,
+        coordinateMode: "euclidean",
+        contourOptions: { spacing: 0.25, base: 0 },
+      },
+      false,
+    );
+
+    expect(lines.type).toBe("FeatureCollection");
+    expect(lines.features.length).toBeGreaterThan(0);
+    expect(lines.features[0].geometry.type).toBe("LineString");
+  });
+
+  it("can interpolate tuple arrays the same was as GeoJSON feature collections", () => {
+    const samples: Tuple2DWithValue[] = [
+      [0.2, 0.2, 1.0],
+      [1.2, 1.1, 2.0],
+      [2.5, 0.7, 0.5],
+      [0.4, 1.7, 1.4],
+    ];
+
+    const featureCollection: FeatureCollection<Point> = {
+      type: "FeatureCollection",
+      features: samples.map(([x, y, v]) => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [x, y] },
+        properties: { value: v },
+      })),
+    };
+
+    const linesFromFC = interpolateGeoJSON(
+      featureCollection,
+      "value",
+      "isolines",
+      {
+        resolution: 64,
+        coordinateMode: "euclidean",
+        contourOptions: { spacing: 0.25, base: 0 },
+      },
+    );
+
+    const tupleLines = handleEuclideanMode(
+      samples,
+      "isolines",
+      {
+        resolution: 64,
+        coordinateMode: "euclidean",
+        contourOptions: { spacing: 0.25, base: 0 },
+      },
+      false,
+    );
+
+    expect(tupleLines.features.length).toBe(linesFromFC.features.length);
+    expect(tupleLines.features[0]).toStrictEqual(linesFromFC.features[0]);
+    expect(tupleLines.features[0].properties.value).toBeCloseTo(
+      linesFromFC.features[0].properties.value,
+    );
   });
 });

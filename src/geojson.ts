@@ -16,8 +16,9 @@ import type {
   BarnesResult,
   GridContourOptions,
   ScalarOrVector,
+  Tuple2DWithValue,
 } from "./types";
-import { barnes } from "./barnes";
+import { barnes, tupleArrayToBarnesSamples } from "./barnes";
 
 export interface ContourProperties {
   value: number;
@@ -107,91 +108,93 @@ export function interpolateGeoJSON<
   const useSpherical =
     coordinateMode === "spherical" && !hasAllManualGridParams;
 
-  if (useSpherical) {
-    const [rx, ry] = normalizeResolution(options.resolution);
-    const projection = createLambertProjection(
+  if (useSpherical) return handleSphericalMode(points, values, mode, options);
+  else
+    return handleEuclideanMode(
       points,
-      options.sphericalOptions,
-    );
-
-    if (!projection) {
-      throw new Error(
-        "Failed to create Lambert projection for spherical interpolation",
-      );
-    }
-
-    const mappedPoints = points.map((p) =>
-      lambertToMap(projection, p[0], p[1]),
-    );
-
-    const padding =
-      options.sphericalOptions?.lambertPadding ?? options.padding ?? 0.05;
-    if (!(padding >= 0)) {
-      throw new Error(`lambertPadding/padding must be >= 0, got ${padding}`);
-    }
-
-    const lambertBounds = getPointBounds(mappedPoints);
-    if (!lambertBounds) {
-      return { type: "FeatureCollection", features: [] };
-    }
-
-    const extentX = lambertBounds.maxX - lambertBounds.minX;
-    const extentY = lambertBounds.maxY - lambertBounds.minY;
-    const padX = extentX > 0 ? extentX * padding : 1;
-    const padY = extentY > 0 ? extentY * padding : 1;
-
-    const x0Lam: [number, number] = [
-      lambertBounds.minX - padX,
-      lambertBounds.minY - padY,
-    ];
-    const size: [number, number] = [rx, ry];
-    const spanX = lambertBounds.maxX + padX - x0Lam[0];
-    const spanY = lambertBounds.maxY + padY - x0Lam[1];
-    const stepLam: [number, number] = [
-      spanX / Math.max(1, size[0] - 1),
-      spanY / Math.max(1, size[1] - 1),
-    ];
-
-    const sigma = options.sigma ?? Math.max(stepLam[0], stepLam[1]) * 2.0;
-
-    const grid = barnes(
-      mappedPoints,
       values,
-      sigma,
-      x0Lam,
-      stepLam,
-      size,
-      options.barnesOptions ?? {},
+      mode,
+      options,
+      hasAllManualGridParams,
     );
+}
 
-    if (mode === "isolines") {
-      const linesLambert = gridToIsolinesGeoJSON(
-        grid,
-        x0Lam,
-        stepLam,
-        options.contourOptions,
-      );
-      const linesLonLat = transformIsolinesFromLambert(
-        linesLambert,
-        projection,
-      );
-      return linesLonLat;
-    }
+// export function tupleArrayToGeoJSON(
+//   tupleArray: Tuple2DWithValue[],
+//   mode: "isobands",
+//   options: GridContourOptions,
+// ): FeatureCollection<MultiPolygon, ContourProperties>;
+// export function tupleArrayToGeoJSON(
+//   tupleArray: Tuple2DWithValue[],
+//   mode: "isolines",
+//   options: GridContourOptions,
+// ): FeatureCollection<LineString, ContourProperties>;
 
-    const bandsLambert = gridToIsobandsGeoJSON(
-      grid,
-      x0Lam,
-      stepLam,
-      options.contourOptions,
-    );
-    return transformIsobandsFromLambert(bandsLambert, projection);
+// export function tupleArrayToGeoJSON(
+//   tupleArray: Tuple2DWithValue[],
+//   mode: GeoJSONInterpolationMode,
+//   options: GridContourOptions,
+// ):
+//   | FeatureCollection<MultiPolygon, ContourProperties>
+//   | FeatureCollection<LineString, ContourProperties> {
+//   const samples = tupleArrayToBarnesSamples(tupleArray);
+// }
+
+export function handleEuclideanMode(
+  samples: Tuple2DWithValue[],
+  mode: GeoJSONInterpolationMode,
+  options: InterpolateGeoJSONOptions,
+  hasAllManualGridParams: boolean,
+):
+  | FeatureCollection<LineString, ContourProperties>
+  | FeatureCollection<MultiPolygon, ContourProperties>;
+
+export function handleEuclideanMode(
+  points: number[][],
+  values: number[],
+  mode: GeoJSONInterpolationMode,
+  options: InterpolateGeoJSONOptions,
+  hasAllManualGridParams: boolean,
+):
+  | FeatureCollection<LineString, ContourProperties>
+  | FeatureCollection<MultiPolygon, ContourProperties>;
+
+export function handleEuclideanMode(
+  pointsOrSamples: number[][] | Tuple2DWithValue[],
+  valuesOrMode: number[] | GeoJSONInterpolationMode,
+  modeOrOptions: GeoJSONInterpolationMode | InterpolateGeoJSONOptions,
+  optionsOrHasAllManualGridParams: InterpolateGeoJSONOptions | boolean,
+  hasAllManualGridParams?: boolean,
+):
+  | FeatureCollection<LineString, ContourProperties>
+  | FeatureCollection<MultiPolygon, ContourProperties> {
+  let options;
+  let mode;
+  let points: number[][];
+  let values: number[];
+  let manualGridParams: boolean;
+
+  if (typeof valuesOrMode === "string") {
+    // signature with samples
+    mode = valuesOrMode as GeoJSONInterpolationMode;
+    options = modeOrOptions as InterpolateGeoJSONOptions;
+    points = (pointsOrSamples as Tuple2DWithValue[]).map((t) => [t[0], t[1]]);
+    values = (pointsOrSamples as Tuple2DWithValue[]).map((t) => t[2]);
+    manualGridParams = optionsOrHasAllManualGridParams as boolean;
+  } else {
+    // signature with separate points and values
+    points = pointsOrSamples as number[][];
+    values = valuesOrMode as number[];
+    mode = modeOrOptions as GeoJSONInterpolationMode;
+    options = optionsOrHasAllManualGridParams as InterpolateGeoJSONOptions;
+    manualGridParams = hasAllManualGridParams as boolean;
   }
 
   let x0: [number, number];
   let step: [number, number];
   let size: [number, number];
 
-  if (hasAllManualGridParams) {
+  if (manualGridParams) {
     x0 = normalize2DVector(options.x0 as ScalarOrVector, "x0");
     step = normalize2DVector(options.step as ScalarOrVector, "step");
     const sizeVec = normalize2DSize(options.size as number | readonly number[]);
@@ -247,6 +250,85 @@ export function interpolateGeoJSON<
   }
 
   return gridToIsobandsGeoJSON(grid, x0, step, options.contourOptions);
+}
+
+function handleSphericalMode(
+  points: number[][],
+  values: number[],
+  mode: GeoJSONInterpolationMode,
+  options: InterpolateGeoJSONOptions,
+):
+  | FeatureCollection<LineString, ContourProperties>
+  | FeatureCollection<MultiPolygon, ContourProperties> {
+  const [rx, ry] = normalizeResolution(options.resolution);
+  const projection = createLambertProjection(points, options.sphericalOptions);
+
+  if (!projection) {
+    throw new Error(
+      "Failed to create Lambert projection for spherical interpolation",
+    );
+  }
+
+  const mappedPoints = points.map((p) => lambertToMap(projection, p[0], p[1]));
+
+  const padding =
+    options.sphericalOptions?.lambertPadding ?? options.padding ?? 0.05;
+  if (!(padding >= 0)) {
+    throw new Error(`lambertPadding/padding must be >= 0, got ${padding}`);
+  }
+
+  const lambertBounds = getPointBounds(mappedPoints);
+  if (!lambertBounds) {
+    return { type: "FeatureCollection", features: [] };
+  }
+
+  const extentX = lambertBounds.maxX - lambertBounds.minX;
+  const extentY = lambertBounds.maxY - lambertBounds.minY;
+  const padX = extentX > 0 ? extentX * padding : 1;
+  const padY = extentY > 0 ? extentY * padding : 1;
+
+  const x0Lam: [number, number] = [
+    lambertBounds.minX - padX,
+    lambertBounds.minY - padY,
+  ];
+  const size: [number, number] = [rx, ry];
+  const spanX = lambertBounds.maxX + padX - x0Lam[0];
+  const spanY = lambertBounds.maxY + padY - x0Lam[1];
+  const stepLam: [number, number] = [
+    spanX / Math.max(1, size[0] - 1),
+    spanY / Math.max(1, size[1] - 1),
+  ];
+
+  const sigma = options.sigma ?? Math.max(stepLam[0], stepLam[1]) * 2.0;
+
+  const grid = barnes(
+    mappedPoints,
+    values,
+    sigma,
+    x0Lam,
+    stepLam,
+    size,
+    options.barnesOptions ?? {},
+  );
+
+  if (mode === "isolines") {
+    const linesLambert = gridToIsolinesGeoJSON(
+      grid,
+      x0Lam,
+      stepLam,
+      options.contourOptions,
+    );
+    const linesLonLat = transformIsolinesFromLambert(linesLambert, projection);
+    return linesLonLat;
+  }
+
+  const bandsLambert = gridToIsobandsGeoJSON(
+    grid,
+    x0Lam,
+    stepLam,
+    options.contourOptions,
+  );
+  return transformIsobandsFromLambert(bandsLambert, projection);
 }
 
 interface LambertProjection {
