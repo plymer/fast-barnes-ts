@@ -27,5 +27,6 @@ export type {
   PointInput,
   ScalarOrVector,
   SizeInput,
+  Tuple2DWithValue,
   ValueInput,
 } from "./types";

@@ -20,6 +20,8 @@ export type ValueInput = ArrayLike<number>;
 export type ScalarOrVector = number | ArrayLike<number>;
 export type SizeInput = number | ReadonlyArray<number>;
 
+export type Tuple2DWithValue = [number, number, number];
+
 export interface BarnesSample {
   point: number | ReadonlyArray<number>;
   value: number;

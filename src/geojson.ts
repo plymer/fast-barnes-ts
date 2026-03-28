@@ -19,11 +19,7 @@ import type {
 } from "./types";
 import { barnes } from "./barnes";
 
-export interface ContourBandProperties {
-  value: number;
-}
-
-export interface ContourLineProperties {
+export interface ContourProperties {
   value: number;
 }
 
@@ -49,7 +45,7 @@ export function interpolateGeoJSON<
   valueProperty: K & keyof NonNullable<P>,
   mode: "isolines",
   options: InterpolateGeoJSONOptions,
-): FeatureCollection<LineString, ContourLineProperties>;
+): FeatureCollection<LineString, ContourProperties>;
 
 export function interpolateGeoJSON<
   P extends GeoJsonProperties,
@@ -59,7 +55,7 @@ export function interpolateGeoJSON<
   valueProperty: K & keyof NonNullable<P>,
   mode: "isobands",
   options: InterpolateGeoJSONOptions,
-): FeatureCollection<MultiPolygon, ContourBandProperties>;
+): FeatureCollection<MultiPolygon, ContourProperties>;
 
 export function interpolateGeoJSON<
   P extends GeoJsonProperties,
@@ -70,8 +66,8 @@ export function interpolateGeoJSON<
   mode: GeoJSONInterpolationMode,
   options: InterpolateGeoJSONOptions,
 ):
-  | FeatureCollection<MultiPolygon, ContourBandProperties>
-  | FeatureCollection<LineString, ContourLineProperties> {
+  | FeatureCollection<MultiPolygon, ContourProperties>
+  | FeatureCollection<LineString, ContourProperties> {
   const samples = samplesFromGeoJSON(featureCollection, valueProperty);
 
   if (samples.length === 0) {
@@ -117,6 +113,13 @@ export function interpolateGeoJSON<
       points,
       options.sphericalOptions,
     );
+
+    if (!projection) {
+      throw new Error(
+        "Failed to create Lambert projection for spherical interpolation",
+      );
+    }
+
     const mappedPoints = points.map((p) =>
       lambertToMap(projection, p[0], p[1]),
     );
@@ -261,7 +264,7 @@ const HALF_RAD_PER_DEGREE = RAD_PER_DEGREE / 2.0;
 function createLambertProjection(
   points: number[][],
   options: GeoJSONSphericalOptions | undefined,
-): LambertProjection {
+): LambertProjection | null {
   const bounds = getPointBounds(points);
   if (!bounds) {
     throw new Error("Cannot determine projection bounds from empty points");
@@ -367,9 +370,9 @@ function getPointBounds(points: number[][]): {
 }
 
 function transformIsolinesFromLambert(
-  collection: FeatureCollection<LineString, ContourLineProperties>,
+  collection: FeatureCollection<LineString, ContourProperties>,
   projection: LambertProjection,
-): FeatureCollection<LineString, ContourLineProperties> {
+): FeatureCollection<LineString, ContourProperties> {
   return {
     type: "FeatureCollection",
     features: collection.features.map((feature) => ({
@@ -386,9 +389,9 @@ function transformIsolinesFromLambert(
 }
 
 function transformIsobandsFromLambert(
-  collection: FeatureCollection<MultiPolygon, ContourBandProperties>,
+  collection: FeatureCollection<MultiPolygon, ContourProperties>,
   projection: LambertProjection,
-): FeatureCollection<MultiPolygon, ContourBandProperties> {
+): FeatureCollection<MultiPolygon, ContourProperties> {
   return {
     type: "FeatureCollection",
     features: collection.features.map((feature) => ({
@@ -432,14 +435,15 @@ export function samplesFromGeoJSON<
     const feature = featureCollection.features[i];
 
     if (feature.geometry.type !== "Point") {
-      throw new Error(
+      console.warn(
         `Feature ${i} geometry must be Point, got ${feature.geometry.type}`,
       );
+      continue;
     }
 
     const coords = feature.geometry.coordinates;
     if (coords.length !== 2 && coords.length !== 3) {
-      throw new Error(
+      console.warn(
         `Feature ${i} Point coordinates must have length 2 or 3, got ${coords.length}`,
       );
     }
@@ -447,9 +451,10 @@ export function samplesFromGeoJSON<
     if (dim === undefined) {
       dim = coords.length as 2 | 3;
     } else if (coords.length !== dim) {
-      throw new Error(
+      console.warn(
         `Inconsistent Point coordinate dimensions, expected ${dim} but got ${coords.length}`,
       );
+      continue;
     }
 
     const properties = feature.properties as NonNullable<P> | null | undefined;
@@ -488,7 +493,7 @@ export function gridToIsobandsGeoJSON(
   x0: ScalarOrVector,
   step: ScalarOrVector,
   options: GridContourOptions,
-): FeatureCollection<MultiPolygon, ContourBandProperties> {
+): FeatureCollection<MultiPolygon, ContourProperties> {
   ensure2DGrid(grid);
   const [sx, sy] = grid.shape;
   const [x0x, x0y] = normalize2DVector(x0, "x0");
@@ -501,7 +506,7 @@ export function gridToIsobandsGeoJSON(
 
   const res = generator(Array.from(grid.data));
 
-  const features: Array<Feature<MultiPolygon, ContourBandProperties>> = res.map(
+  const features: Array<Feature<MultiPolygon, ContourProperties>> = res.map(
     (item) => ({
       type: "Feature",
       properties: {
@@ -540,10 +545,10 @@ export function gridToIsolinesGeoJSON(
   x0: ScalarOrVector,
   step: ScalarOrVector,
   options: GridContourOptions,
-): FeatureCollection<LineString, ContourLineProperties> {
+): FeatureCollection<LineString, ContourProperties> {
   const bands = gridToIsobandsGeoJSON(grid, x0, step, options);
 
-  const features: Array<Feature<LineString, ContourLineProperties>> = [];
+  const features: Array<Feature<LineString, ContourProperties>> = [];
 
   for (const band of bands.features) {
     const value = band.properties.value;
