@@ -8,7 +8,13 @@ export {
   toSamples,
   toNestedArray,
 } from "./barnes";
-export { geoJSONtoGeoJSON, tupleArrayToGeoJSON } from "./geojson";
+export {
+  geoJSONtoGeoJSON,
+  gridToIsobandsGeoJSON,
+  gridToIsolinesGeoJSON,
+  samplesFromGeoJSON,
+  tupleArrayToGeoJSON,
+} from "./geojson";
 
 export type {
   BarnesSample,

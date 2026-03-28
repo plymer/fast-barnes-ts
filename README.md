@@ -59,19 +59,45 @@ const grid = toNestedArray(result); // grid[y][x]
 Read station samples from a GeoJSON `FeatureCollection<Point>` and generate contour outputs in one call.
 
 ```ts
-import { interpolateGeoJSON } from "fast-barnes-ts";
+import { geoJSONtoGeoJSON } from "@plymer/fast-barnes-ts";
 import type { FeatureCollection, Point } from "geojson";
 
 type PressureProps = { pressure: number; stationId: string };
 
 declare const stations: FeatureCollection<Point, PressureProps>;
 
-const isolines = interpolateGeoJSON(stations, "pressure", "isoline", {
+const isolines = geoJSONtoGeoJSON(stations, "pressure", "isoline", {
   contourOptions: { spacing: 4, base: 1024 },
 });
 
-const isobands = interpolateGeoJSON(stations, "pressure", "isoband", {
+const isobands = geoJSONtoGeoJSON(stations, "pressure", "isoband", {
   contourOptions: { spacing: 4, base: 1024 },
+});
+```
+
+Or, convert a tuple array in the form of `[x, y, value][]` directly to contours.
+
+```ts
+import {
+  tupleArrayToGeoJSON,
+  type Tuple2DWithValue,
+} from "@plymer/fast-barnes-ts";
+
+const samples: Tuple2DWithValue[] = [
+  [0.2, 0.2, 1.0],
+  [1.2, 1.1, 2.0],
+  [2.5, 0.7, 0.5],
+  [0.4, 1.7, 1.4],
+];
+
+const isolines = tupleArrayToGeoJSON(samples, "isolines", {
+  resolution: 64,
+  contourOptions: { spacing: 0.25, base: 0 },
+});
+
+const isobands = tupleArrayToGeoJSON(samples, "isobands", {
+  resolution: 64,
+  contourOptions: { spacing: 0.25, base: 0 },
 });
 ```
 
@@ -112,7 +138,8 @@ Return shape:
 ## GeoJSON helpers
 
 - `samplesFromGeoJSON(featureCollection, propertyKey)`
-- `interpolateGeoJSON(featureCollection, propertyKey, mode, options?)`
+- `geoJSONtoGeoJSON(featureCollection, propertyKey, mode, options?)`
+- `tupleArrayToGeoJSON(samples, mode, options?)`
 - `gridToIsolinesGeoJSON(field, x0, step, contourOptions)`
 - `gridToIsobandsGeoJSON(field, x0, step, contourOptions)`
 

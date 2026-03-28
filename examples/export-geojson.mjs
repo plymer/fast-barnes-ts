@@ -61,11 +61,13 @@ async function main() {
   const isobands = gridToIsobandsGeoJSON(field, x0, step, {
     thresholds: 12,
     smooth: true,
+    spacing: 0.5,
   });
 
   const isolines = gridToIsolinesGeoJSON(field, x0, step, {
     thresholds: 12,
     smooth: true,
+    spacing: 0.5,
   });
 
   const __filename = fileURLToPath(import.meta.url);
