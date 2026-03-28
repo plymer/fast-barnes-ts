@@ -3,10 +3,9 @@ import { barnes } from "../src/barnes";
 import {
   gridToIsobandsGeoJSON,
   gridToIsolinesGeoJSON,
-  handleEuclideanMode,
-  handleSphericalMode,
-  interpolateGeoJSON,
+  geoJSONtoGeoJSON,
   samplesFromGeoJSON,
+  tupleArrayToGeoJSON,
 } from "../src/geojson";
 import { FeatureCollection, GeoJsonProperties, Point } from "geojson";
 import { Tuple2DWithValue } from "../src/types";
@@ -117,7 +116,7 @@ describe("geojson", () => {
       ],
     };
 
-    const lines = interpolateGeoJSON(fc, "slp", "isolines", {
+    const lines = geoJSONtoGeoJSON(fc, "slp", "isolines", {
       resolution: 64,
       contourOptions: { spacing: 0.25, base: 0 },
     });
@@ -154,7 +153,7 @@ describe("geojson", () => {
       ],
     };
 
-    const bands = interpolateGeoJSON(fc, "slp", "isobands", {
+    const bands = geoJSONtoGeoJSON(fc, "slp", "isobands", {
       resolution: [48, 40],
       contourOptions: { spacing: 0.25, base: 0 },
     });
@@ -191,12 +190,12 @@ describe("geojson", () => {
       ],
     };
 
-    const sphericalDefault = interpolateGeoJSON(fc, "slp", "isolines", {
+    const sphericalDefault = geoJSONtoGeoJSON(fc, "slp", "isolines", {
       resolution: [96, 64],
       contourOptions: { spacing: 1, base: 1006 },
     });
 
-    const euclidean = interpolateGeoJSON(fc, "slp", "isolines", {
+    const euclidean = geoJSONtoGeoJSON(fc, "slp", "isolines", {
       coordinateMode: "euclidean",
       resolution: [96, 64],
       contourOptions: { spacing: 1, base: 1006 },
@@ -233,7 +232,7 @@ describe("geojson", () => {
       ],
     };
 
-    const lines = interpolateGeoJSON(fc, "slp", "isolines", {
+    const lines = geoJSONtoGeoJSON(fc, "slp", "isolines", {
       resolution: [64, 64],
       sigma: 0.35,
       contourOptions: {
@@ -291,7 +290,7 @@ describe("geojson", () => {
     expect(lines.features[0].geometry.type).toBe("LineString");
   });
 
-  it("can accept tuple array samples directly for Euclidian GeoJSON interpolation", () => {
+  it("can transform tuple array samples directly to GeoJSON via Euclidian interpolation", () => {
     const samples: Tuple2DWithValue[] = [
       [0.2, 0.2, 1.0],
       [1.2, 1.1, 2.0],
@@ -299,23 +298,18 @@ describe("geojson", () => {
       [0.4, 1.7, 1.4],
     ];
 
-    const lines = handleEuclideanMode(
-      samples,
-      "isolines",
-      {
-        resolution: 64,
-        coordinateMode: "euclidean",
-        contourOptions: { spacing: 0.25, base: 0 },
-      },
-      false,
-    );
+    const lines = tupleArrayToGeoJSON(samples, "isolines", {
+      resolution: 64,
+      coordinateMode: "euclidean",
+      contourOptions: { spacing: 0.25, base: 0 },
+    });
 
     expect(lines.type).toBe("FeatureCollection");
     expect(lines.features.length).toBeGreaterThan(0);
     expect(lines.features[0].geometry.type).toBe("LineString");
   });
 
-  it("can accept tuple array samples directly for Spherical GeoJSON interpolation", () => {
+  it("can transform tuple array samples directly to GeoJSON via Spherical interpolation", () => {
     const samples: Tuple2DWithValue[] = [
       [0.2, 0.2, 1.0],
       [1.2, 1.1, 2.0],
@@ -323,7 +317,7 @@ describe("geojson", () => {
       [0.4, 1.7, 1.4],
     ];
 
-    const lines = handleSphericalMode(samples, "isolines", {
+    const lines = tupleArrayToGeoJSON(samples, "isolines", {
       resolution: 64,
       contourOptions: { spacing: 0.25, base: 0 },
     });
@@ -350,7 +344,7 @@ describe("geojson", () => {
       })),
     };
 
-    const linesFromFC = interpolateGeoJSON(
+    const linesFromFC = geoJSONtoGeoJSON(
       featureCollection,
       "value",
       "isobands",
@@ -361,16 +355,11 @@ describe("geojson", () => {
       },
     );
 
-    const tupleLines = handleEuclideanMode(
-      samples,
-      "isobands",
-      {
-        resolution: 64,
-        coordinateMode: "euclidean",
-        contourOptions: { spacing: 0.25, base: 0 },
-      },
-      false,
-    );
+    const tupleLines = tupleArrayToGeoJSON(samples, "isobands", {
+      resolution: 64,
+      coordinateMode: "euclidean",
+      contourOptions: { spacing: 0.25, base: 0 },
+    });
 
     expect(tupleLines.features.length).toBe(linesFromFC.features.length);
     expect(tupleLines.features[0]).toStrictEqual(linesFromFC.features[0]);

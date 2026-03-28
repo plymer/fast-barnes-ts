@@ -38,30 +38,21 @@ export interface ContourProperties {
  * @param options Optional interpolation and contour settings.
  * @returns GeoJSON isobands (`MultiPolygon`) or isolines (`LineString`).
  */
-export function interpolateGeoJSON<
-  P extends GeoJsonProperties,
-  K extends string,
->(
+export function geoJSONtoGeoJSON<P extends GeoJsonProperties, K extends string>(
   featureCollection: FeatureCollection<Point, P>,
   valueProperty: K & keyof NonNullable<P>,
   mode: "isolines",
   options: InterpolateGeoJSONOptions,
 ): FeatureCollection<LineString, ContourProperties>;
 
-export function interpolateGeoJSON<
-  P extends GeoJsonProperties,
-  K extends string,
->(
+export function geoJSONtoGeoJSON<P extends GeoJsonProperties, K extends string>(
   featureCollection: FeatureCollection<Point, P>,
   valueProperty: K & keyof NonNullable<P>,
   mode: "isobands",
   options: InterpolateGeoJSONOptions,
 ): FeatureCollection<MultiPolygon, ContourProperties>;
 
-export function interpolateGeoJSON<
-  P extends GeoJsonProperties,
-  K extends string,
->(
+export function geoJSONtoGeoJSON<P extends GeoJsonProperties, K extends string>(
   featureCollection: FeatureCollection<Point, P>,
   valueProperty: K & keyof NonNullable<P>,
   mode: GeoJSONInterpolationMode,
@@ -119,26 +110,52 @@ export function interpolateGeoJSON<
     );
 }
 
-// export function tupleArrayToGeoJSON(
-//   tupleArray: Tuple2DWithValue[],
-//   mode: "isobands",
-//   options: GridContourOptions,
-// ): FeatureCollection<MultiPolygon, ContourProperties>;
-// export function tupleArrayToGeoJSON(
-//   tupleArray: Tuple2DWithValue[],
-//   mode: "isolines",
-//   options: GridContourOptions,
-// ): FeatureCollection<LineString, ContourProperties>;
+export function tupleArrayToGeoJSON(
+  tupleArray: Tuple2DWithValue[],
+  mode: "isobands",
+  options: InterpolateGeoJSONOptions,
+): FeatureCollection<MultiPolygon, ContourProperties>;
+export function tupleArrayToGeoJSON(
+  tupleArray: Tuple2DWithValue[],
+  mode: "isolines",
+  options: InterpolateGeoJSONOptions,
+): FeatureCollection<LineString, ContourProperties>;
 
-// export function tupleArrayToGeoJSON(
-//   tupleArray: Tuple2DWithValue[],
-//   mode: GeoJSONInterpolationMode,
-//   options: GridContourOptions,
-// ):
-//   | FeatureCollection<MultiPolygon, ContourProperties>
-//   | FeatureCollection<LineString, ContourProperties> {
-//   const samples = tupleArrayToBarnesSamples(tupleArray);
-// }
+export function tupleArrayToGeoJSON(
+  tupleArray: Tuple2DWithValue[],
+  mode: GeoJSONInterpolationMode,
+  options: InterpolateGeoJSONOptions,
+):
+  | FeatureCollection<MultiPolygon, ContourProperties>
+  | FeatureCollection<LineString, ContourProperties> {
+  const hasAnyManualGridParam =
+    options.x0 !== undefined ||
+    options.step !== undefined ||
+    options.size !== undefined;
+  const hasAllManualGridParams =
+    options.x0 !== undefined &&
+    options.step !== undefined &&
+    options.size !== undefined;
+
+  if (hasAnyManualGridParam && !hasAllManualGridParams) {
+    throw new Error(
+      "When specifying manual grid parameters, provide x0, step, and size together",
+    );
+  }
+
+  const coordinateMode = options.coordinateMode ?? "spherical";
+  const useSpherical =
+    coordinateMode === "spherical" && !hasAllManualGridParams;
+
+  if (useSpherical) return handleSphericalMode(tupleArray, mode, options);
+  else
+    return handleEuclideanMode(
+      tupleArray,
+      mode,
+      options,
+      hasAllManualGridParams,
+    );
+}
 
 export function handleEuclideanMode(
   samples: Tuple2DWithValue[],
