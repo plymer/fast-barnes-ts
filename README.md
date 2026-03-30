@@ -119,11 +119,10 @@ Both `isolines` and `isobands` are returned as GeoJSON `FeatureCollection` objec
 
 Alternative overload:
 
-### `barnes(samples, sigma, x0, step, size, options?)`
+### `barnes(tupleArray, sigma, x0, step, size, options?)`
 
-- `samples`: `{ point, value }[]`
-- `point`: scalar (1D) or coordinate array
-- `value`: numeric sample value
+- `tupleArray`: `[x, value][]` (1D), `[x, y, value][]` (2D), or `[x, y, z, value][]` (3D)
+- optimized for direct tuple ingestion without object-sample conversion
 
 Return shape:
 
@@ -145,8 +144,6 @@ Return shape:
 
 Additional utility helpers:
 
-- `toSamples(points, values)`
-- `fromSamples(samples)`
 - `toNestedArray(result)`
 - `getHalfKernelSize(...)`
 - `getHalfKernelSizeOpt(...)`

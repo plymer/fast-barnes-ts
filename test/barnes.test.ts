@@ -1,12 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  barnes,
-  fromSamples,
-  getHalfKernelSizeOpt,
-  toSamples,
-  toNestedArray,
-} from "../src";
-import { tupleArrayToBarnesSamples } from "../src/barnes";
+import { barnes, getHalfKernelSizeOpt, toNestedArray } from "../src";
 
 function lcg(seed: number): () => number {
   let state = seed >>> 0;
@@ -96,8 +89,6 @@ describe("barnes", () => {
       [2.5, 0.7, 0.5],
     ];
 
-    const tupleSamples = tupleArrayToBarnesSamples(tupleArray);
-
     const pointsAndValues = barnes(
       tupleArray.map(([x, y]) => [x, y]),
       tupleArray.map(([_, __, v]) => v),
@@ -107,14 +98,80 @@ describe("barnes", () => {
       [8, 6],
     );
 
-    const objectInput = barnes(tupleSamples, 0.8, [0, 0], 0.5, [8, 6]);
+    const tupleInput = barnes(tupleArray, 0.8, [0, 0], 0.5, [8, 6]);
 
-    expect(objectInput.shape).toEqual(pointsAndValues.shape);
-    expect(objectInput.dimension).toBe(pointsAndValues.dimension);
+    expect(tupleInput.shape).toEqual(pointsAndValues.shape);
+    expect(tupleInput.dimension).toBe(pointsAndValues.dimension);
 
     for (let i = 0; i < pointsAndValues.data.length; i++) {
       const a = pointsAndValues.data[i];
-      const b = objectInput.data[i];
+      const b = tupleInput.data[i];
+      if (Number.isNaN(a) && Number.isNaN(b)) continue;
+      expect(Math.abs(a - b)).toBeLessThan(1e-6);
+    }
+  });
+
+  it("accepts 1D tuple array input", () => {
+    const tupleArray: [number, number][] = [
+      [0, 3],
+      [1, 2],
+      [2, 1],
+      [4, 2],
+      [6, 5],
+      [9, 4],
+    ];
+
+    const tupleInput = barnes(tupleArray, 1.2, 0, 0.5, 30);
+    const pointsAndValues = barnes(
+      tupleArray.map(([x]) => x),
+      tupleArray.map(([, value]) => value),
+      1.2,
+      0,
+      0.5,
+      30,
+    );
+
+    expect(tupleInput.dimension).toBe(1);
+    expect(tupleInput.shape).toEqual(pointsAndValues.shape);
+
+    for (let i = 0; i < tupleInput.data.length; i++) {
+      const a = tupleInput.data[i];
+      const b = pointsAndValues.data[i];
+      if (Number.isNaN(a) && Number.isNaN(b)) continue;
+      expect(Math.abs(a - b)).toBeLessThan(1e-6);
+    }
+  });
+
+  it("accepts 3D tuple array input", () => {
+    const tupleArray: [number, number, number, number][] = [
+      [0.2, 0.2, 0.1, 1.0],
+      [1.2, 1.1, 0.3, 2.0],
+      [2.5, 0.7, 0.9, 0.5],
+      [0.4, 1.7, 1.2, 1.4],
+    ];
+
+    const tupleInput = barnes(
+      tupleArray,
+      [0.8, 0.8, 0.8],
+      [0, 0, 0],
+      0.5,
+      [8, 6, 5],
+    );
+    const pointsAndValues = barnes(
+      tupleArray.map(([x, y, z]) => [x, y, z]),
+      tupleArray.map(([, , , value]) => value),
+      [0.8, 0.8, 0.8],
+      [0, 0, 0],
+      0.5,
+      [8, 6, 5],
+    );
+
+    expect(tupleInput.dimension).toBe(3);
+    expect(tupleInput.shape).toEqual(pointsAndValues.shape);
+
+    for (let i = 0; i < tupleInput.data.length; i++) {
+      const a = tupleInput.data[i];
+      const b = pointsAndValues.data[i];
       if (Number.isNaN(a) && Number.isNaN(b)) continue;
       expect(Math.abs(a - b)).toBeLessThan(1e-6);
     }
@@ -125,84 +182,14 @@ describe("barnes", () => {
     expect(getHalfKernelSizeOpt([1.0, 0.5], [0.25, 0.25], 4)).toEqual([3, 1]);
   });
 
-  it("accepts sample object input and matches classic API", () => {
-    const points = [
-      [0.2, 0.2],
-      [1.2, 1.1],
-      [2.5, 0.7],
-      [2.9, 2.4],
-      [0.4, 2.0],
-    ];
-    const values = [1.0, 2.0, 0.5, 1.2, 1.7];
+  it("rejects invalid tuple array entries", () => {
+    const tupleArray = [
+      [0.2, 0.2, 1.0],
+      [1.2, Number.NaN, 2.0],
+    ] as [number, number, number][];
 
-    const samples = points.map((point, i) => ({ point, value: values[i] }));
-
-    const classic = barnes(points, values, 0.8, [0, 0], 0.25, [16, 12], {
-      method: "optimized_convolution",
-      numIter: 4,
-    });
-
-    const objectInput = barnes(samples, 0.8, [0, 0], 0.25, [16, 12], {
-      method: "optimized_convolution",
-      numIter: 4,
-    });
-
-    expect(objectInput.shape).toEqual(classic.shape);
-    expect(objectInput.dimension).toBe(classic.dimension);
-
-    for (let i = 0; i < classic.data.length; i++) {
-      const a = classic.data[i];
-      const b = objectInput.data[i];
-      if (Number.isNaN(a) && Number.isNaN(b)) continue;
-      expect(Math.abs(a - b)).toBeLessThan(1e-6);
-    }
-  });
-
-  it("converts point/value arrays to sample objects", () => {
-    const points2d = [
-      [0.1, 0.2],
-      [1.1, 1.2],
-    ];
-    const values2d = [10, 20];
-    const obs2d = toSamples(points2d, values2d);
-
-    expect(obs2d).toEqual([
-      { point: [0.1, 0.2], value: 10 },
-      { point: [1.1, 1.2], value: 20 },
-    ]);
-
-    const points1d = [1, 2, 3];
-    const values1d = [5, 6, 7];
-    const obs1d = toSamples(points1d, values1d);
-
-    expect(obs1d).toEqual([
-      { point: 1, value: 5 },
-      { point: 2, value: 6 },
-      { point: 3, value: 7 },
-    ]);
-  });
-
-  it("converts sample objects back to point/value arrays", () => {
-    const obs2d = [
-      { point: [0.1, 0.2], value: 10 },
-      { point: [1.1, 1.2], value: 20 },
-    ] as const;
-
-    const back2d = fromSamples(obs2d);
-    expect(back2d.points).toEqual([
-      [0.1, 0.2],
-      [1.1, 1.2],
-    ]);
-    expect(back2d.values).toEqual([10, 20]);
-
-    const obs1d = [
-      { point: 1, value: 5 },
-      { point: 2, value: 6 },
-      { point: 3, value: 7 },
-    ] as const;
-
-    const back1d = fromSamples(obs1d);
-    expect(back1d.points).toEqual([1, 2, 3]);
-    expect(back1d.values).toEqual([5, 6, 7]);
+    expect(() => barnes(tupleArray, 0.8, [0, 0], 0.25, [16, 12])).toThrow(
+      /tupleArray entries must be/,
+    );
   });
 });

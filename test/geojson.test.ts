@@ -43,9 +43,9 @@ describe("geojson", () => {
 
     const samples = samplesFromGeoJSON(fc, "slp");
     expect(samples).toEqual([
-      { point: [0.2, 0.2], value: 1.0 },
-      { point: [1.2, 1.1], value: 2.0 },
-      { point: [2.5, 0.7], value: 0.5 },
+      [0.2, 0.2, 1.0],
+      [1.2, 1.1, 2.0],
+      [2.5, 0.7, 0.5],
     ]);
 
     const result = barnes(samples, 0.8, [0, 0], 0.5, [8, 6]);
@@ -71,7 +71,7 @@ describe("geojson", () => {
     };
 
     const samples = samplesFromGeoJSON(fc, "slp");
-    expect(samples).toEqual([{ point: [0.4, 0.6], value: 1012 }]);
+    expect(samples).toEqual([[0.4, 0.6, 1012]]);
   });
 
   it("throws when GeoJSON property value is non-numeric", () => {

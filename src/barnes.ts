@@ -1,12 +1,14 @@
 import type {
-  BarnesSample,
   BarnesOptions,
   BarnesResult,
   PointInput,
   ScalarOrVector,
   SizeInput,
+  Tuple1DWithValue,
   ValueInput,
   Tuple2DWithValue,
+  Tuple3DWithValue,
+  TupleWithValue,
 } from "./types";
 
 const SQRT_2_PI = Math.sqrt(2.0 * Math.PI);
@@ -23,64 +25,11 @@ interface NormalizedInput {
 }
 
 /**
- * Converts parallel coordinate/value arrays into sample objects accepted by `barnes(...)`.
- *
- * @param pts Input coordinates as 1D points (`number[]`) or multi-dimensional points (`number[][]`).
- * @param val Sample values aligned by index with `pts`.
- * @returns Array of `{ point, value }` samples.
- * @throws If the number of points and values differ.
- */
-export function toSamples(pts: PointInput, val: ValueInput): BarnesSample[] {
-  const values = Array.from(val);
-
-  if (isPointMatrix(pts)) {
-    const points = pts as ReadonlyArray<ReadonlyArray<number>>;
-
-    if (points.length !== values.length) {
-      throw new Error(
-        `pts and val arrays have inconsistent lengths: ${points.length} vs ${values.length}`,
-      );
-    }
-
-    return points.map((point, i) => ({
-      point: Array.from(point),
-      value: values[i],
-    }));
-  }
-
-  const points1d = Array.from(pts as ArrayLike<number>);
-  if (points1d.length !== values.length) {
-    throw new Error(
-      `pts and val arrays have inconsistent lengths: ${points1d.length} vs ${values.length}`,
-    );
-  }
-
-  return points1d.map((point, i) => ({
-    point,
-    value: values[i],
-  }));
-}
-
-/**
- * Converts sample objects back into parallel point/value arrays.
- *
- * @param samples Sample objects with scalar or vector `point` values.
- * @returns Object containing `points` and `values` arrays.
- * @throws If point dimensionality is inconsistent or outside 1D/2D/3D.
- */
-export function fromSamples(samples: ReadonlyArray<BarnesSample>): {
-  points: number[] | number[][];
-  values: number[];
-} {
-  return unpackSamples(samples);
-}
-
-/**
  * Interpolates irregular samples onto a regular grid using Barnes interpolation.
  *
- * Overload accepting sample objects.
+ * Overload accepting tuple arrays in `[x, value]`, `[x, y, value]`, or `[x, y, z, value]` format.
  *
- * @param samples Sample array in `{ point, value }` format.
+ * @param tupleArray 1D/2D/3D tuples with scalar values.
  * @param sigma Gaussian width per dimension (scalar or vector).
  * @param x0 Grid origin per dimension (scalar or vector).
  * @param step Grid spacing per dimension (scalar or vector).
@@ -89,7 +38,7 @@ export function fromSamples(samples: ReadonlyArray<BarnesSample>): {
  * @returns Flat grid result with metadata (`shape`, `dimension`).
  */
 export function barnes(
-  samples: ReadonlyArray<BarnesSample>,
+  tupleArray: ReadonlyArray<TupleWithValue>,
   sigma: ScalarOrVector,
   x0: ScalarOrVector,
   step: ScalarOrVector,
@@ -122,7 +71,7 @@ export function barnes(
 ): BarnesResult;
 
 export function barnes(
-  ptsOrSamples: PointInput | ReadonlyArray<BarnesSample>,
+  ptsOrTupleArray: PointInput | ReadonlyArray<TupleWithValue>,
   valOrSigma: ValueInput | ScalarOrVector,
   sigmaOrX0: ScalarOrVector,
   x0OrStep: ScalarOrVector,
@@ -130,31 +79,33 @@ export function barnes(
   sizeOrOptions?: SizeInput | BarnesOptions,
   maybeOptions: BarnesOptions = {},
 ): BarnesResult {
-  let pts: PointInput;
-  let val: ValueInput;
   let sigma: ScalarOrVector;
   let x0: ScalarOrVector;
   let step: ScalarOrVector;
   let size: SizeInput;
   let options: BarnesOptions;
+  let normalized: NormalizedInput;
 
-  if (isSampleArray(ptsOrSamples)) {
-    const unpacked = unpackSamples(ptsOrSamples);
-    pts = unpacked.points;
-    val = unpacked.values;
+  if (
+    isTupleArrayInput(ptsOrTupleArray) &&
+    (sizeOrOptions === undefined || isBarnesOptions(sizeOrOptions))
+  ) {
+    const tupleArray = ptsOrTupleArray;
     sigma = valOrSigma as ScalarOrVector;
     x0 = sigmaOrX0;
     step = x0OrStep;
     size = stepOrSize as SizeInput;
     options = (sizeOrOptions as BarnesOptions | undefined) ?? {};
+    normalized = normalizeTupleInput(tupleArray, sigma, x0, step, size);
   } else {
-    pts = ptsOrSamples;
-    val = valOrSigma as ValueInput;
+    const pts = ptsOrTupleArray as PointInput;
+    const val = valOrSigma as ValueInput;
     sigma = sigmaOrX0;
     x0 = x0OrStep;
     step = stepOrSize as ScalarOrVector;
     size = sizeOrOptions as SizeInput;
     options = maybeOptions;
+    normalized = normalizeInput(pts, val, sigma, x0, step, size);
   }
 
   const method = options.method ?? "optimized_convolution";
@@ -165,7 +116,6 @@ export function barnes(
     throw new Error(`numIter must be a positive integer, got ${numIter}`);
   }
 
-  const normalized = normalizeInput(pts, val, sigma, x0, step, size);
   const maxDistWeight = Math.exp(-(maxDist ** 2) / 2.0);
 
   if (method === "optimized_convolution") {
@@ -197,83 +147,18 @@ export function barnes(
   );
 }
 
-function isSampleArray(
-  value: PointInput | ReadonlyArray<BarnesSample>,
-): value is ReadonlyArray<BarnesSample> {
+function isTupleArrayInput(
+  value: PointInput | ReadonlyArray<TupleWithValue>,
+): value is ReadonlyArray<TupleWithValue> {
   return (
-    Array.isArray(value) &&
-    value.length > 0 &&
-    typeof value[0] === "object" &&
-    value[0] !== null &&
-    "point" in value[0] &&
-    "value" in value[0]
+    Array.isArray(value) && (value.length === 0 || isTupleWithValue(value[0]))
   );
 }
 
-function unpackSamples(samples: ReadonlyArray<BarnesSample>): {
-  points: number[] | number[][];
-  values: number[];
-} {
-  if (samples.length === 0) {
-    return { points: [], values: [] };
-  }
-
-  const firstPoint = samples[0].point;
-  const dim = typeof firstPoint === "number" ? 1 : firstPoint.length;
-
-  if (dim < 1 || dim > 3) {
-    throw new Error(
-      `Barnes interpolation supports dimensions 1, 2 or 3, got ${dim}`,
-    );
-  }
-
-  const values = new Array<number>(samples.length);
-
-  if (dim === 1) {
-    const points = new Array<number>(samples.length);
-    for (let i = 0; i < samples.length; i++) {
-      const sample = samples[i];
-      const point = sample.point;
-
-      if (typeof point === "number") {
-        points[i] = point;
-      } else {
-        if (point.length !== 1) {
-          throw new Error(
-            `Inconsistent point dimension in samples, expected 1 but got ${point.length}`,
-          );
-        }
-        points[i] = point[0];
-      }
-
-      values[i] = sample.value;
-    }
-
-    return { points, values };
-  }
-
-  const points = new Array<number[]>(samples.length);
-  for (let i = 0; i < samples.length; i++) {
-    const sample = samples[i];
-    const point = sample.point;
-
-    if (typeof point === "number") {
-      throw new Error(
-        `Inconsistent point dimension in samples, expected ${dim} but got scalar`,
-      );
-    }
-
-    if (point.length !== dim) {
-      throw new Error(
-        `Inconsistent point dimension in samples, expected ${dim} but got ${point.length}`,
-      );
-    }
-
-    points[i] = Array.from(point);
-    values[i] = sample.value;
-  }
-
-  return { points, values };
+function isBarnesOptions(
+  value: SizeInput | BarnesOptions,
+): value is BarnesOptions {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -420,6 +305,70 @@ function normalizeInput(
     throw new Error(
       `pts and val arrays have inconsistent lengths: ${sampleCount} vs ${values.length}`,
     );
+  }
+
+  const sigmaVec = Float64Array.from(toVector(sigma, dim, "sigma"));
+  const x0Vec = Float64Array.from(toVector(x0, dim, "x0"));
+  const stepVec = Float64Array.from(toVector(step, dim, "step"));
+  const sizeVec = normalizeSize(size, dim);
+
+  for (const s of sigmaVec) {
+    if (!(s > 0.0)) throw new Error("sigma must be > 0 in all dimensions");
+  }
+  for (const s of stepVec) {
+    if (!(s > 0.0)) throw new Error("step must be > 0 in all dimensions");
+  }
+  for (const s of sizeVec) {
+    if (!Number.isInteger(s) || s < 2)
+      throw new Error("size values must be integer and >= 2");
+  }
+
+  return {
+    points,
+    values,
+    sampleCount,
+    dim,
+    sigma: sigmaVec,
+    x0: x0Vec,
+    step: stepVec,
+    size: sizeVec,
+  };
+}
+
+function normalizeTupleInput(
+  tupleArray: ReadonlyArray<TupleWithValue>,
+  sigma: ScalarOrVector,
+  x0: ScalarOrVector,
+  step: ScalarOrVector,
+  size: SizeInput,
+): NormalizedInput {
+  const sampleCount = tupleArray.length;
+  const dimRaw =
+    sampleCount === 0
+      ? inferDimFromVectors(sigma, step)
+      : tupleArray[0].length - 1;
+  if (dimRaw < 1 || dimRaw > 3) {
+    throw new Error(
+      `Barnes interpolation supports tuple dimensions 1, 2 or 3, got ${dimRaw}`,
+    );
+  }
+  const dim = dimRaw as 1 | 2 | 3;
+
+  const points = new Float64Array(sampleCount * dim);
+  const values = new Float64Array(sampleCount);
+
+  for (let i = 0; i < sampleCount; i++) {
+    const tuple = tupleArray[i];
+    if (!isTupleWithValue(tuple) || tuple.length !== dim + 1) {
+      throw new Error(
+        `tupleArray entries must be consistent finite tuples like [x, value], [x, y, value], or [x, y, z, value], got ${JSON.stringify(tuple)}`,
+      );
+    }
+
+    for (let d = 0; d < dim; d++) {
+      points[i * dim + d] = tuple[d] as number;
+    }
+    values[i] = tuple[dim] as number;
   }
 
   const sigmaVec = Float64Array.from(toVector(sigma, dim, "sigma"));
@@ -1226,34 +1175,34 @@ function interpolateNaive(input: NormalizedInput): BarnesResult {
   return { data: out, shape: size, dimension: dim };
 }
 
-function isTuple2DWithValue(input: unknown): input is Tuple2DWithValue {
-  if (
-    !Array.isArray(input) ||
-    input.length !== 3 ||
-    !input.every((x) => typeof x === "number" && Number.isFinite(x))
-  ) {
-    return false;
-  }
-  return true;
+function isTuple1DWithValue(input: unknown): input is Tuple1DWithValue {
+  return (
+    Array.isArray(input) &&
+    input.length === 2 &&
+    input.every((x) => typeof x === "number" && Number.isFinite(x))
+  );
 }
 
-export function tupleArrayToBarnesSamples(
-  input: Tuple2DWithValue[],
-): BarnesSample[] {
-  const samples: BarnesSample[] = [];
+function isTuple2DWithValue(input: unknown): input is Tuple2DWithValue {
+  return (
+    Array.isArray(input) &&
+    input.length === 3 &&
+    input.every((x) => typeof x === "number" && Number.isFinite(x))
+  );
+}
 
-  for (let i = 0; i < input.length; i++) {
-    const item = input[i];
+function isTuple3DWithValue(input: unknown): input is Tuple3DWithValue {
+  return (
+    Array.isArray(input) &&
+    input.length === 4 &&
+    input.every((x) => typeof x === "number" && Number.isFinite(x))
+  );
+}
 
-    if (!isTuple2DWithValue(item)) {
-      console.warn(
-        `Input at index ${i} must be a tuple [x, y, value] of finite numbers, got ${JSON.stringify(item)}`,
-      );
-      continue;
-    }
-
-    samples.push({ point: [item[0], item[1]], value: item[2] });
-  }
-
-  return samples;
+function isTupleWithValue(input: unknown): input is TupleWithValue {
+  return (
+    isTuple1DWithValue(input) ||
+    isTuple2DWithValue(input) ||
+    isTuple3DWithValue(input)
+  );
 }

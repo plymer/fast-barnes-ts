@@ -9,7 +9,6 @@ import type {
   Position,
 } from "geojson";
 import type {
-  BarnesSample,
   InterpolateGeoJSONOptions,
   GeoJSONInterpolationMode,
   GeoJSONSphericalOptions,
@@ -25,7 +24,7 @@ export interface ContourProperties {
 }
 
 /**
- * End-to-end GeoJSON interpolation helper that converts point features to samples,
+ * End-to-end GeoJSON interpolation helper that converts point features to tuples,
  * interpolates with Barnes, and returns either isobands or isolines.
  *
  * With only the first three arguments, the interpolation grid is derived from point bounds.
@@ -60,54 +59,8 @@ export function geoJSONtoGeoJSON<P extends GeoJsonProperties, K extends string>(
 ):
   | FeatureCollection<MultiPolygon, ContourProperties>
   | FeatureCollection<LineString, ContourProperties> {
-  const samples = samplesFromGeoJSON(featureCollection, valueProperty);
-
-  if (samples.length === 0) {
-    return { type: "FeatureCollection", features: [] };
-  }
-
-  const points: number[][] = [];
-  const values: number[] = [];
-
-  for (let i = 0; i < samples.length; i++) {
-    const sample = samples[i];
-    if (typeof sample.point === "number" || sample.point.length !== 2) {
-      throw new Error(
-        "interpolateGeoJSON currently supports only 2D Point geometries",
-      );
-    }
-    points.push([sample.point[0], sample.point[1]]);
-    values.push(sample.value);
-  }
-
-  const hasAnyManualGridParam =
-    options.x0 !== undefined ||
-    options.step !== undefined ||
-    options.size !== undefined;
-  const hasAllManualGridParams =
-    options.x0 !== undefined &&
-    options.step !== undefined &&
-    options.size !== undefined;
-
-  if (hasAnyManualGridParam && !hasAllManualGridParams) {
-    throw new Error(
-      "When specifying manual grid parameters, provide x0, step, and size together",
-    );
-  }
-
-  const coordinateMode = options.coordinateMode ?? "spherical";
-  const useSpherical =
-    coordinateMode === "spherical" && !hasAllManualGridParams;
-
-  if (useSpherical) return handleSphericalMode(points, values, mode, options);
-  else
-    return handleEuclideanMode(
-      points,
-      values,
-      mode,
-      options,
-      hasAllManualGridParams,
-    );
+  const tupleArray = samplesFromGeoJSON(featureCollection, valueProperty);
+  return tupleArrayToGeoJSON(tupleArray, mode, options);
 }
 
 export function tupleArrayToGeoJSON(
@@ -120,7 +73,13 @@ export function tupleArrayToGeoJSON(
   mode: "isolines",
   options: InterpolateGeoJSONOptions,
 ): FeatureCollection<LineString, ContourProperties>;
-
+export function tupleArrayToGeoJSON(
+  tupleArray: Tuple2DWithValue[],
+  mode: GeoJSONInterpolationMode,
+  options: InterpolateGeoJSONOptions,
+):
+  | FeatureCollection<MultiPolygon, ContourProperties>
+  | FeatureCollection<LineString, ContourProperties>;
 export function tupleArrayToGeoJSON(
   tupleArray: Tuple2DWithValue[],
   mode: GeoJSONInterpolationMode,
@@ -158,60 +117,20 @@ export function tupleArrayToGeoJSON(
 }
 
 export function handleEuclideanMode(
-  samples: Tuple2DWithValue[],
+  tupleArray: Tuple2DWithValue[],
   mode: GeoJSONInterpolationMode,
   options: InterpolateGeoJSONOptions,
   hasAllManualGridParams: boolean,
-):
-  | FeatureCollection<LineString, ContourProperties>
-  | FeatureCollection<MultiPolygon, ContourProperties>;
-
-export function handleEuclideanMode(
-  points: number[][],
-  values: number[],
-  mode: GeoJSONInterpolationMode,
-  options: InterpolateGeoJSONOptions,
-  hasAllManualGridParams: boolean,
-):
-  | FeatureCollection<LineString, ContourProperties>
-  | FeatureCollection<MultiPolygon, ContourProperties>;
-
-export function handleEuclideanMode(
-  pointsOrSamples: number[][] | Tuple2DWithValue[],
-  valuesOrMode: number[] | GeoJSONInterpolationMode,
-  modeOrOptions: GeoJSONInterpolationMode | InterpolateGeoJSONOptions,
-  optionsOrHasAllManualGridParams: InterpolateGeoJSONOptions | boolean,
-  hasAllManualGridParams?: boolean,
 ):
   | FeatureCollection<LineString, ContourProperties>
   | FeatureCollection<MultiPolygon, ContourProperties> {
-  let options;
-  let mode;
-  let points: number[][];
-  let values: number[];
-  let manualGridParams: boolean;
-
-  if (typeof valuesOrMode === "string") {
-    // signature with samples
-    mode = valuesOrMode as GeoJSONInterpolationMode;
-    options = modeOrOptions as InterpolateGeoJSONOptions;
-    points = (pointsOrSamples as Tuple2DWithValue[]).map((t) => [t[0], t[1]]);
-    values = (pointsOrSamples as Tuple2DWithValue[]).map((t) => t[2]);
-    manualGridParams = optionsOrHasAllManualGridParams as boolean;
-  } else {
-    // signature with separate points and values
-    points = pointsOrSamples as number[][];
-    values = valuesOrMode as number[];
-    mode = modeOrOptions as GeoJSONInterpolationMode;
-    options = optionsOrHasAllManualGridParams as InterpolateGeoJSONOptions;
-    manualGridParams = hasAllManualGridParams as boolean;
-  }
+  const { points, values } = splitTuple2DArray(tupleArray);
 
   let x0: [number, number];
   let step: [number, number];
   let size: [number, number];
 
-  if (manualGridParams) {
+  if (hasAllManualGridParams) {
     x0 = normalize2DVector(options.x0 as ScalarOrVector, "x0");
     step = normalize2DVector(options.step as ScalarOrVector, "step");
     const sizeVec = normalize2DSize(options.size as number | readonly number[]);
@@ -270,52 +189,16 @@ export function handleEuclideanMode(
 }
 
 export function handleSphericalMode(
-  samples: Tuple2DWithValue[],
+  tupleArray: Tuple2DWithValue[],
   mode: GeoJSONInterpolationMode,
   options: InterpolateGeoJSONOptions,
-):
-  | FeatureCollection<LineString, ContourProperties>
-  | FeatureCollection<MultiPolygon, ContourProperties>;
-export function handleSphericalMode(
-  points: number[][],
-  values: number[],
-  mode: GeoJSONInterpolationMode,
-  options: InterpolateGeoJSONOptions,
-):
-  | FeatureCollection<LineString, ContourProperties>
-  | FeatureCollection<MultiPolygon, ContourProperties>;
-export function handleSphericalMode(
-  pointsOrSamples: number[][] | Tuple2DWithValue[],
-  valuesOrMode: number[] | GeoJSONInterpolationMode,
-  modeOrOptions: GeoJSONInterpolationMode | InterpolateGeoJSONOptions,
-  options?: InterpolateGeoJSONOptions,
 ):
   | FeatureCollection<LineString, ContourProperties>
   | FeatureCollection<MultiPolygon, ContourProperties> {
-  let points;
-  let values;
-  let mode;
-  let geoJsonOptions;
+  const { points, values } = splitTuple2DArray(tupleArray);
 
-  if (typeof valuesOrMode === "string") {
-    // signature with samples
-    mode = valuesOrMode as GeoJSONInterpolationMode;
-    geoJsonOptions = modeOrOptions as InterpolateGeoJSONOptions;
-    points = (pointsOrSamples as Tuple2DWithValue[]).map((t) => [t[0], t[1]]);
-    values = (pointsOrSamples as Tuple2DWithValue[]).map((t) => t[2]);
-  } else {
-    // signature with separate points and values
-    points = pointsOrSamples as number[][];
-    values = valuesOrMode as number[];
-    mode = modeOrOptions as GeoJSONInterpolationMode;
-    geoJsonOptions = options as InterpolateGeoJSONOptions;
-  }
-
-  const [rx, ry] = normalizeResolution(geoJsonOptions.resolution);
-  const projection = createLambertProjection(
-    points,
-    geoJsonOptions.sphericalOptions,
-  );
+  const [rx, ry] = normalizeResolution(options.resolution);
+  const projection = createLambertProjection(points, options.sphericalOptions);
 
   if (!projection) {
     throw new Error(
@@ -326,9 +209,7 @@ export function handleSphericalMode(
   const mappedPoints = points.map((p) => lambertToMap(projection, p[0], p[1]));
 
   const padding =
-    geoJsonOptions.sphericalOptions?.lambertPadding ??
-    geoJsonOptions.padding ??
-    0.05;
+    options.sphericalOptions?.lambertPadding ?? options.padding ?? 0.05;
   if (!(padding >= 0)) {
     throw new Error(`lambertPadding/padding must be >= 0, got ${padding}`);
   }
@@ -355,7 +236,7 @@ export function handleSphericalMode(
     spanY / Math.max(1, size[1] - 1),
   ];
 
-  const sigma = geoJsonOptions.sigma ?? Math.max(stepLam[0], stepLam[1]) * 2.0;
+  const sigma = options.sigma ?? Math.max(stepLam[0], stepLam[1]) * 2.0;
 
   const grid = barnes(
     mappedPoints,
@@ -364,7 +245,7 @@ export function handleSphericalMode(
     x0Lam,
     stepLam,
     size,
-    geoJsonOptions.barnesOptions ?? {},
+    options.barnesOptions ?? {},
   );
 
   if (mode === "isolines") {
@@ -372,7 +253,7 @@ export function handleSphericalMode(
       grid,
       x0Lam,
       stepLam,
-      geoJsonOptions.contourOptions,
+      options.contourOptions,
     );
     const linesLonLat = transformIsolinesFromLambert(linesLambert, projection);
     return linesLonLat;
@@ -382,7 +263,7 @@ export function handleSphericalMode(
     grid,
     x0Lam,
     stepLam,
-    geoJsonOptions.contourOptions,
+    options.contourOptions,
   );
   return transformIsobandsFromLambert(bandsLambert, projection);
 }
@@ -550,14 +431,14 @@ function transformIsobandsFromLambert(
 }
 
 /**
- * Builds Barnes samples from a GeoJSON `FeatureCollection` of `Point` features.
+ * Builds tuple samples from a GeoJSON `FeatureCollection` of `Point` features.
  *
  * `valueProperty` is constrained to keys of the feature `properties` type.
  *
  * @param featureCollection GeoJSON points with numeric values in `properties`.
  * @param valueProperty Property key to read the sample value from each feature.
- * @returns Sample array compatible with `barnes(samples, ...)`.
- * @throws If a feature is not a `Point`, has inconsistent dimensions, or has a non-numeric property value.
+ * @returns Tuple array in `[x, y, value]` format.
+ * @throws If a feature is not a `Point` or has a non-numeric property value.
  */
 export function samplesFromGeoJSON<
   P extends GeoJsonProperties,
@@ -565,9 +446,8 @@ export function samplesFromGeoJSON<
 >(
   featureCollection: FeatureCollection<Point, P>,
   valueProperty: K & keyof NonNullable<P>,
-): BarnesSample[] {
-  const samples: BarnesSample[] = [];
-  let dim: 2 | 3 | undefined;
+): Tuple2DWithValue[] {
+  const tupleArray: Tuple2DWithValue[] = [];
 
   for (let i = 0; i < featureCollection.features.length; i++) {
     const feature = featureCollection.features[i];
@@ -580,17 +460,9 @@ export function samplesFromGeoJSON<
     }
 
     const coords = feature.geometry.coordinates;
-    if (coords.length !== 2 && coords.length !== 3) {
+    if (coords.length !== 2) {
       console.warn(
-        `Feature ${i} Point coordinates must have length 2 or 3, got ${coords.length}`,
-      );
-    }
-
-    if (dim === undefined) {
-      dim = coords.length as 2 | 3;
-    } else if (coords.length !== dim) {
-      console.warn(
-        `Inconsistent Point coordinate dimensions, expected ${dim} but got ${coords.length}`,
+        `Feature ${i} Point coordinates must have length 2, got ${coords.length}`,
       );
       continue;
     }
@@ -607,14 +479,26 @@ export function samplesFromGeoJSON<
       );
     }
 
-    samples.push({
-      point:
-        dim === 2 ? [coords[0], coords[1]] : [coords[0], coords[1], coords[2]],
-      value: rawValue,
-    });
+    tupleArray.push([coords[0], coords[1], rawValue]);
   }
 
-  return samples;
+  return tupleArray;
+}
+
+function splitTuple2DArray(tupleArray: Tuple2DWithValue[]): {
+  points: number[][];
+  values: number[];
+} {
+  const points = new Array<number[]>(tupleArray.length);
+  const values = new Array<number>(tupleArray.length);
+
+  for (let i = 0; i < tupleArray.length; i++) {
+    const [x, y, value] = tupleArray[i];
+    points[i] = [x, y];
+    values[i] = value;
+  }
+
+  return { points, values };
 }
 
 /**

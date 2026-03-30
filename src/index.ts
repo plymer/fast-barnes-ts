@@ -1,11 +1,9 @@
 export {
   barnes,
-  fromSamples,
   getHalfKernelSize,
   getHalfKernelSizeOpt,
   getSigmaEffective,
   getTailValue,
-  toSamples,
   toNestedArray,
 } from "./barnes";
 export {
@@ -13,11 +11,9 @@ export {
   gridToIsobandsGeoJSON,
   gridToIsolinesGeoJSON,
   samplesFromGeoJSON,
-  tupleArrayToGeoJSON,
 } from "./geojson";
 
 export type {
-  BarnesSample,
   BarnesMethod,
   BarnesOptions,
   BarnesResult,
@@ -28,6 +24,9 @@ export type {
   PointInput,
   ScalarOrVector,
   SizeInput,
+  Tuple1DWithValue,
   Tuple2DWithValue,
+  Tuple3DWithValue,
+  TupleWithValue,
   ValueInput,
 } from "./types";
