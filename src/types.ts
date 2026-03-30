@@ -12,6 +12,36 @@ export interface BarnesResult {
   dimension: 1 | 2 | 3;
 }
 
+export type GridExtremaKind = "max" | "min";
+
+export interface GridExtremaPoint2D {
+  kind: GridExtremaKind;
+  value: number;
+  prominence: number;
+  gridIndex: number;
+  i: number;
+  j: number;
+  x: number;
+  y: number;
+}
+
+export interface GridExtremaOptions2D {
+  radius?: number;
+  minSeparation?: number;
+  minProminence?: number;
+  maxCountPerKind?: number;
+  ignoreBorder?: boolean;
+}
+
+export interface GridExtremaGeoJSONProperties {
+  kind: GridExtremaKind;
+  value: number;
+  prominence: number;
+  gridIndex: number;
+  i: number;
+  j: number;
+}
+
 export type PointInput =
   | number[]
   | ArrayLike<number>

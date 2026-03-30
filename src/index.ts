@@ -1,5 +1,6 @@
 export {
   barnes,
+  findGridExtrema2D,
   getHalfKernelSize,
   getHalfKernelSizeOpt,
   getSigmaEffective,
@@ -8,6 +9,7 @@ export {
 } from "./barnes";
 export {
   geoJSONtoGeoJSON,
+  gridExtremaToGeoJSON,
   gridToIsobandsGeoJSON,
   gridToIsolinesGeoJSON,
   samplesFromGeoJSON,
@@ -17,6 +19,10 @@ export type {
   BarnesMethod,
   BarnesOptions,
   BarnesResult,
+  GridExtremaGeoJSONProperties,
+  GridExtremaKind,
+  GridExtremaOptions2D,
+  GridExtremaPoint2D,
   GeoJSONInterpolationMode,
   GeoJSONSphericalOptions,
   GridContourOptions,

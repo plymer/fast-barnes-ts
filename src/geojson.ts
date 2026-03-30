@@ -13,6 +13,8 @@ import type {
   GeoJSONInterpolationMode,
   GeoJSONSphericalOptions,
   BarnesResult,
+  GridExtremaGeoJSONProperties,
+  GridExtremaPoint2D,
   GridContourOptions,
   ScalarOrVector,
   Tuple2DWithValue,
@@ -618,6 +620,43 @@ export function gridToIsolinesGeoJSON(
         });
       }
     }
+  }
+
+  return {
+    type: "FeatureCollection",
+    features,
+  };
+}
+
+/**
+ * Converts detected grid extrema into a GeoJSON `FeatureCollection` of points.
+ *
+ * @param extrema Extrema points from `findGridExtrema2D(...)`.
+ * @returns GeoJSON points with extrema metadata in properties.
+ */
+export function gridExtremaToGeoJSON(
+  extrema: ReadonlyArray<GridExtremaPoint2D>,
+): FeatureCollection<Point, GridExtremaGeoJSONProperties> {
+  const features: Array<Feature<Point, GridExtremaGeoJSONProperties>> =
+    new Array(extrema.length);
+
+  for (let i = 0; i < extrema.length; i++) {
+    const item = extrema[i];
+    features[i] = {
+      type: "Feature",
+      properties: {
+        kind: item.kind,
+        value: item.value,
+        prominence: item.prominence,
+        gridIndex: item.gridIndex,
+        i: item.i,
+        j: item.j,
+      },
+      geometry: {
+        type: "Point",
+        coordinates: [item.x, item.y],
+      },
+    };
   }
 
   return {

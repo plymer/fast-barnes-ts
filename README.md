@@ -145,10 +145,58 @@ Return shape:
 Additional utility helpers:
 
 - `toNestedArray(result)`
+- `findGridExtrema2D(grid, x0, step, options?)`
+- `gridExtremaToGeoJSON(extrema)`
 - `getHalfKernelSize(...)`
 - `getHalfKernelSizeOpt(...)`
 - `getTailValue(...)`
 - `getSigmaEffective(...)`
+
+## Finding High/Low Pressure Centres
+
+After interpolation, you can detect local maxima/minima (for highs/lows) and
+export them as GeoJSON points.
+
+```ts
+import {
+  barnes,
+  findGridExtrema2D,
+  gridExtremaToGeoJSON,
+  type Tuple2DWithValue,
+} from "fast-barnes-ts";
+
+const samples: Tuple2DWithValue[] = [
+  [-4.0, 51.0, 1008.2],
+  [-1.8, 52.2, 1015.4],
+  [1.2, 50.5, 1002.7],
+  [2.8, 53.0, 1012.3],
+];
+
+const x0: [number, number] = [-6, 49];
+const step: [number, number] = [0.1, 0.1];
+const size: [number, number] = [160, 120];
+
+const grid = barnes(samples, 0.5, x0, step, size, {
+  method: "optimized_convolution",
+  numIter: 4,
+});
+
+const extrema = findGridExtrema2D(grid, x0, step, {
+  radius: 1,
+  minSeparation: 3,
+  minProminence: 0.8,
+});
+
+const centresGeoJSON = gridExtremaToGeoJSON(extrema);
+```
+
+`findGridExtrema2D` returns both maxima and minima, each with:
+
+- `kind`: `"max"` or `"min"`
+- `value`: interpolated field value at that grid cell
+- `prominence`: local strength relative to nearby cells
+- `gridIndex`, `i`, `j`: grid coordinates
+- `x`, `y`: map/data coordinates
 
 ## Examples
 

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { barnes, getHalfKernelSizeOpt, toNestedArray } from "../src";
+import {
+  barnes,
+  findGridExtrema2D,
+  getHalfKernelSizeOpt,
+  toNestedArray,
+} from "../src";
 
 function lcg(seed: number): () => number {
   let state = seed >>> 0;
@@ -191,5 +196,87 @@ describe("barnes", () => {
     expect(() => barnes(tupleArray, 0.8, [0, 0], 0.25, [16, 12])).toThrow(
       /tupleArray entries must be/,
     );
+  });
+
+  it("finds representative maxima and minima on a 2D grid", () => {
+    const sx = 7;
+    const sy = 7;
+    const data = new Float32Array(sx * sy);
+    data.fill(0);
+
+    // Strong local high near upper-left and low near lower-right.
+    data[2 + 2 * sx] = 10;
+    data[5 + 4 * sx] = -9;
+
+    const grid = {
+      data,
+      shape: [sx, sy] as const,
+      dimension: 2 as const,
+    };
+
+    const extrema = findGridExtrema2D(grid, [100, 200], [2, 3], {
+      radius: 1,
+      minSeparation: 0,
+      minProminence: 1,
+    });
+
+    const max = extrema.find((e) => e.kind === "max");
+    const min = extrema.find((e) => e.kind === "min");
+
+    expect(max).toBeDefined();
+    expect(min).toBeDefined();
+
+    expect(max?.i).toBe(2);
+    expect(max?.j).toBe(2);
+    expect(max?.x).toBe(104);
+    expect(max?.y).toBe(206);
+    expect(max?.value).toBe(10);
+
+    expect(min?.i).toBe(5);
+    expect(min?.j).toBe(4);
+    expect(min?.x).toBe(110);
+    expect(min?.y).toBe(212);
+    expect(min?.value).toBe(-9);
+  });
+
+  it("reduces trough-chain detections with minSeparation", () => {
+    const sx = 15;
+    const sy = 9;
+    const data = new Float32Array(sx * sy);
+    data.fill(100);
+
+    const profile = [-5, -7, -6, -8, -6, -9, -6, -8, -6, -7, -5];
+    const yMid = 4;
+
+    for (let k = 0; k < profile.length; k++) {
+      const x = 2 + k;
+      data[yMid * sx + x] = profile[k];
+      data[(yMid - 1) * sx + x] = profile[k] + 2;
+      data[(yMid + 1) * sx + x] = profile[k] + 2;
+    }
+
+    const grid = {
+      data,
+      shape: [sx, sy] as const,
+      dimension: 2 as const,
+    };
+
+    const minimaNoSuppression = findGridExtrema2D(grid, [0, 0], [1, 1], {
+      radius: 1,
+      minSeparation: 0,
+      minProminence: 0.5,
+    }).filter((e) => e.kind === "min");
+
+    const minimaSuppressed = findGridExtrema2D(grid, [0, 0], [1, 1], {
+      radius: 1,
+      minSeparation: 3,
+      minProminence: 0.5,
+    }).filter((e) => e.kind === "min");
+
+    expect(minimaNoSuppression.length).toBeGreaterThan(2);
+    expect(minimaSuppressed.length).toBeLessThan(minimaNoSuppression.length);
+
+    // Strongest low should be retained near profile minimum.
+    expect(minimaSuppressed.some((e) => e.i === 7 && e.j === yMid)).toBe(true);
   });
 });

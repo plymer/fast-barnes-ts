@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { barnes } from "../src/barnes";
+import { barnes, findGridExtrema2D } from "../src/barnes";
 import {
   gridToIsobandsGeoJSON,
   gridToIsolinesGeoJSON,
   geoJSONtoGeoJSON,
+  gridExtremaToGeoJSON,
   samplesFromGeoJSON,
   tupleArrayToGeoJSON,
 } from "../src/geojson";
@@ -382,5 +383,43 @@ describe("geojson", () => {
     expect(tupleLines.features[0].properties.value).toBeCloseTo(
       linesFromFC.features[0].properties.value,
     );
+  });
+
+  it("converts detected extrema to GeoJSON points", () => {
+    const samples: Tuple2DWithValue[] = [
+      [0, 0, 2],
+      [1, 0, 3],
+      [2, 0, 2],
+      [0, 1, 1],
+      [1, 1, 0],
+      [2, 1, 1],
+      [0, 2, 2],
+      [1, 2, 3],
+      [2, 2, 2],
+    ];
+
+    const grid = barnes(samples, 0.45, [0, 0], [0.1, 0.1], [32, 32]);
+    const extrema = findGridExtrema2D(grid, [0, 0], [0.1, 0.1], {
+      radius: 1,
+      minSeparation: 2,
+      minProminence: 0.01,
+      maxCountPerKind: 5,
+    });
+    const fc = gridExtremaToGeoJSON(extrema);
+
+    expect(fc.type).toBe("FeatureCollection");
+    expect(fc.features.length).toBe(extrema.length);
+
+    if (fc.features.length > 0) {
+      const first = fc.features[0];
+      expect(first.geometry.type).toBe("Point");
+      expect(first.geometry.coordinates.length).toBe(2);
+      expect(typeof first.properties.kind).toBe("string");
+      expect(typeof first.properties.value).toBe("number");
+      expect(typeof first.properties.prominence).toBe("number");
+      expect(typeof first.properties.gridIndex).toBe("number");
+      expect(typeof first.properties.i).toBe("number");
+      expect(typeof first.properties.j).toBe("number");
+    }
   });
 });
