@@ -68,6 +68,10 @@ declare const stations: FeatureCollection<Point, PressureProps>;
 
 const isolines = geoJSONtoGeoJSON(stations, "pressure", "isoline", {
   contourOptions: { spacing: 4, base: 1024 },
+  extrema: {
+    minProminence: 1.5,
+    minSeparation: 3,
+  },
 });
 
 const isobands = geoJSONtoGeoJSON(stations, "pressure", "isoband", {
@@ -102,6 +106,9 @@ const isobands = tupleArrayToGeoJSON(samples, "isobands", {
 ```
 
 Both `isolines` and `isobands` are returned as GeoJSON `FeatureCollection` objects.
+
+Set `extrema: true` (or pass extrema options) to append local max/min `Point`
+features to the same output collection.
 
 ## Core API
 

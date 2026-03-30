@@ -385,6 +385,118 @@ describe("geojson", () => {
     );
   });
 
+  it("optionally appends extrema points to tupleArrayToGeoJSON output", () => {
+    const samples: Tuple2DWithValue[] = [
+      [0.0, 0.0, 0],
+      [1.0, 0.0, 2],
+      [2.0, 0.0, 0],
+      [0.0, 1.0, 2],
+      [1.0, 1.0, 8],
+      [2.0, 1.0, 2],
+      [0.0, 2.0, 0],
+      [1.0, 2.0, 2],
+      [2.0, 2.0, 0],
+    ];
+
+    const withoutExtrema = tupleArrayToGeoJSON(samples, "isolines", {
+      coordinateMode: "euclidean",
+      x0: [0, 0],
+      step: [0.25, 0.25],
+      size: [9, 9],
+      sigma: 0.35,
+      contourOptions: { spacing: 1, base: 0 },
+    });
+
+    const withExtrema = tupleArrayToGeoJSON(samples, "isolines", {
+      coordinateMode: "euclidean",
+      x0: [0, 0],
+      step: [0.25, 0.25],
+      size: [9, 9],
+      sigma: 0.35,
+      contourOptions: { spacing: 1, base: 0 },
+      extrema: { minProminence: 0.1, minSeparation: 1, ignoreBorder: false },
+    });
+
+    const pointCountWithout = withoutExtrema.features.filter(
+      // @ts-expect-error -- without extrema the geometries are all isolines and no points
+      (f) => f.geometry.type === "Point",
+    ).length;
+    const pointCountWith = withExtrema.features.filter(
+      (f) => f.geometry.type === "Point",
+    ).length;
+
+    expect(pointCountWithout).toBe(0);
+    expect(pointCountWith).toBeGreaterThan(0);
+  });
+
+  it("optionally appends extrema points to geoJSONtoGeoJSON output", () => {
+    const fc: FeatureCollection<Point, GeoJsonProperties> = {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [0, 0] },
+          properties: { slp: 0 },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [1, 0] },
+          properties: { slp: 2 },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [2, 0] },
+          properties: { slp: 0 },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [0, 1] },
+          properties: { slp: 2 },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [1, 1] },
+          properties: { slp: 8 },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [2, 1] },
+          properties: { slp: 2 },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [0, 2] },
+          properties: { slp: 0 },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [1, 2] },
+          properties: { slp: 2 },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [2, 2] },
+          properties: { slp: 0 },
+        },
+      ],
+    };
+
+    const out = geoJSONtoGeoJSON(fc, "slp", "isobands", {
+      coordinateMode: "euclidean",
+      x0: [0, 0],
+      step: [0.25, 0.25],
+      size: [9, 9],
+      sigma: 0.35,
+      contourOptions: { spacing: 1, base: 0 },
+      extrema: { minProminence: 0.1, minSeparation: 1, ignoreBorder: false },
+    });
+
+    const pointFeatures = out.features.filter(
+      (f) => f.geometry.type === "Point",
+    );
+    expect(pointFeatures.length).toBeGreaterThan(0);
+  });
+
   it("converts detected extrema to GeoJSON points", () => {
     const samples: Tuple2DWithValue[] = [
       [0, 0, 2],

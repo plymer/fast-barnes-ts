@@ -14,16 +14,29 @@ import type {
   GeoJSONSphericalOptions,
   BarnesResult,
   GridExtremaGeoJSONProperties,
+  GridExtremaOptions2D,
   GridExtremaPoint2D,
   GridContourOptions,
   ScalarOrVector,
   Tuple2DWithValue,
 } from "./types";
-import { barnes } from "./barnes";
+import { barnes, findGridExtrema2D } from "./barnes";
 
 export interface ContourProperties {
   value: number;
 }
+
+export type InterpolatedContourOrExtremaProperties =
+  | ContourProperties
+  | GridExtremaGeoJSONProperties;
+
+type ExtremaEnabledOptions = InterpolateGeoJSONOptions & {
+  extrema: true | GridExtremaOptions2D;
+};
+
+type ExtremaDisabledOptions = InterpolateGeoJSONOptions & {
+  extrema?: false | undefined;
+};
 
 /**
  * End-to-end GeoJSON interpolation helper that converts point features to tuples,
@@ -43,15 +56,35 @@ export function geoJSONtoGeoJSON<P extends GeoJsonProperties, K extends string>(
   featureCollection: FeatureCollection<Point, P>,
   valueProperty: K & keyof NonNullable<P>,
   mode: "isolines",
-  options: InterpolateGeoJSONOptions,
+  options: ExtremaDisabledOptions,
 ): FeatureCollection<LineString, ContourProperties>;
 
 export function geoJSONtoGeoJSON<P extends GeoJsonProperties, K extends string>(
   featureCollection: FeatureCollection<Point, P>,
   valueProperty: K & keyof NonNullable<P>,
+  mode: "isolines",
+  options: ExtremaEnabledOptions,
+): FeatureCollection<
+  LineString | Point,
+  InterpolatedContourOrExtremaProperties
+>;
+
+export function geoJSONtoGeoJSON<P extends GeoJsonProperties, K extends string>(
+  featureCollection: FeatureCollection<Point, P>,
+  valueProperty: K & keyof NonNullable<P>,
   mode: "isobands",
-  options: InterpolateGeoJSONOptions,
+  options: ExtremaDisabledOptions,
 ): FeatureCollection<MultiPolygon, ContourProperties>;
+
+export function geoJSONtoGeoJSON<P extends GeoJsonProperties, K extends string>(
+  featureCollection: FeatureCollection<Point, P>,
+  valueProperty: K & keyof NonNullable<P>,
+  mode: "isobands",
+  options: ExtremaEnabledOptions,
+): FeatureCollection<
+  MultiPolygon | Point,
+  InterpolatedContourOrExtremaProperties
+>;
 
 export function geoJSONtoGeoJSON<P extends GeoJsonProperties, K extends string>(
   featureCollection: FeatureCollection<Point, P>,
@@ -59,8 +92,14 @@ export function geoJSONtoGeoJSON<P extends GeoJsonProperties, K extends string>(
   mode: GeoJSONInterpolationMode,
   options: InterpolateGeoJSONOptions,
 ):
-  | FeatureCollection<MultiPolygon, ContourProperties>
-  | FeatureCollection<LineString, ContourProperties> {
+  | FeatureCollection<
+      MultiPolygon | Point,
+      InterpolatedContourOrExtremaProperties
+    >
+  | FeatureCollection<
+      LineString | Point,
+      InterpolatedContourOrExtremaProperties
+    > {
   const tupleArray = samplesFromGeoJSON(featureCollection, valueProperty);
   return tupleArrayToGeoJSON(tupleArray, mode, options);
 }
@@ -68,27 +107,55 @@ export function geoJSONtoGeoJSON<P extends GeoJsonProperties, K extends string>(
 export function tupleArrayToGeoJSON(
   tupleArray: Tuple2DWithValue[],
   mode: "isobands",
-  options: InterpolateGeoJSONOptions,
+  options: ExtremaDisabledOptions,
 ): FeatureCollection<MultiPolygon, ContourProperties>;
 export function tupleArrayToGeoJSON(
   tupleArray: Tuple2DWithValue[],
+  mode: "isobands",
+  options: ExtremaEnabledOptions,
+): FeatureCollection<
+  MultiPolygon | Point,
+  InterpolatedContourOrExtremaProperties
+>;
+export function tupleArrayToGeoJSON(
+  tupleArray: Tuple2DWithValue[],
   mode: "isolines",
-  options: InterpolateGeoJSONOptions,
+  options: ExtremaDisabledOptions,
 ): FeatureCollection<LineString, ContourProperties>;
 export function tupleArrayToGeoJSON(
   tupleArray: Tuple2DWithValue[],
-  mode: GeoJSONInterpolationMode,
-  options: InterpolateGeoJSONOptions,
-):
-  | FeatureCollection<MultiPolygon, ContourProperties>
-  | FeatureCollection<LineString, ContourProperties>;
+  mode: "isolines",
+  options: ExtremaEnabledOptions,
+): FeatureCollection<
+  LineString | Point,
+  InterpolatedContourOrExtremaProperties
+>;
 export function tupleArrayToGeoJSON(
   tupleArray: Tuple2DWithValue[],
   mode: GeoJSONInterpolationMode,
   options: InterpolateGeoJSONOptions,
 ):
-  | FeatureCollection<MultiPolygon, ContourProperties>
-  | FeatureCollection<LineString, ContourProperties> {
+  | FeatureCollection<
+      MultiPolygon | Point,
+      InterpolatedContourOrExtremaProperties
+    >
+  | FeatureCollection<
+      LineString | Point,
+      InterpolatedContourOrExtremaProperties
+    >;
+export function tupleArrayToGeoJSON(
+  tupleArray: Tuple2DWithValue[],
+  mode: GeoJSONInterpolationMode,
+  options: InterpolateGeoJSONOptions,
+):
+  | FeatureCollection<
+      MultiPolygon | Point,
+      InterpolatedContourOrExtremaProperties
+    >
+  | FeatureCollection<
+      LineString | Point,
+      InterpolatedContourOrExtremaProperties
+    > {
   const hasAnyManualGridParam =
     options.x0 !== undefined ||
     options.step !== undefined ||
@@ -124,8 +191,14 @@ export function handleEuclideanMode(
   options: InterpolateGeoJSONOptions,
   hasAllManualGridParams: boolean,
 ):
-  | FeatureCollection<LineString, ContourProperties>
-  | FeatureCollection<MultiPolygon, ContourProperties> {
+  | FeatureCollection<
+      LineString | Point,
+      InterpolatedContourOrExtremaProperties
+    >
+  | FeatureCollection<
+      MultiPolygon | Point,
+      InterpolatedContourOrExtremaProperties
+    > {
   const { points, values } = splitTuple2DArray(tupleArray);
 
   let x0: [number, number];
@@ -184,10 +257,22 @@ export function handleEuclideanMode(
   );
 
   if (mode === "isolines") {
-    return gridToIsolinesGeoJSON(grid, x0, step, options.contourOptions);
+    const linesOut = gridToIsolinesGeoJSON(
+      grid,
+      x0,
+      step,
+      options.contourOptions,
+    );
+    return appendExtremaFeatures(linesOut, grid, x0, step, options.extrema);
   }
 
-  return gridToIsobandsGeoJSON(grid, x0, step, options.contourOptions);
+  const bandsOut = gridToIsobandsGeoJSON(
+    grid,
+    x0,
+    step,
+    options.contourOptions,
+  );
+  return appendExtremaFeatures(bandsOut, grid, x0, step, options.extrema);
 }
 
 export function handleSphericalMode(
@@ -195,8 +280,14 @@ export function handleSphericalMode(
   mode: GeoJSONInterpolationMode,
   options: InterpolateGeoJSONOptions,
 ):
-  | FeatureCollection<LineString, ContourProperties>
-  | FeatureCollection<MultiPolygon, ContourProperties> {
+  | FeatureCollection<
+      LineString | Point,
+      InterpolatedContourOrExtremaProperties
+    >
+  | FeatureCollection<
+      MultiPolygon | Point,
+      InterpolatedContourOrExtremaProperties
+    > {
   const { points, values } = splitTuple2DArray(tupleArray);
   validateSphericalCoordinates(points);
 
@@ -259,7 +350,21 @@ export function handleSphericalMode(
       options.contourOptions,
     );
     const linesLonLat = transformIsolinesFromLambert(linesLambert, projection);
-    return linesLonLat;
+    if (!options.extrema) return linesLonLat;
+
+    const extremaLambert = gridExtremaToGeoJSON(
+      findGridExtrema2D(
+        grid,
+        x0Lam,
+        stepLam,
+        toExtremaOptions(options.extrema),
+      ),
+    );
+    const extremaLonLat = transformExtremaFromLambert(
+      extremaLambert,
+      projection,
+    );
+    return mergeContourWithExtrema(linesLonLat, extremaLonLat);
   }
 
   const bandsLambert = gridToIsobandsGeoJSON(
@@ -268,7 +373,59 @@ export function handleSphericalMode(
     stepLam,
     options.contourOptions,
   );
-  return transformIsobandsFromLambert(bandsLambert, projection);
+  const bandsLonLat = transformIsobandsFromLambert(bandsLambert, projection);
+  if (!options.extrema) return bandsLonLat;
+
+  const extremaLambert = gridExtremaToGeoJSON(
+    findGridExtrema2D(grid, x0Lam, stepLam, toExtremaOptions(options.extrema)),
+  );
+  const extremaLonLat = transformExtremaFromLambert(extremaLambert, projection);
+  return mergeContourWithExtrema(bandsLonLat, extremaLonLat);
+}
+
+function toExtremaOptions(
+  extrema: InterpolateGeoJSONOptions["extrema"],
+): GridExtremaOptions2D {
+  if (extrema && typeof extrema === "object") {
+    return extrema;
+  }
+  return {};
+}
+
+function appendExtremaFeatures<TGeom extends LineString | MultiPolygon>(
+  contourCollection: FeatureCollection<TGeom, ContourProperties>,
+  grid: BarnesResult,
+  x0: [number, number],
+  step: [number, number],
+  extrema: InterpolateGeoJSONOptions["extrema"],
+):
+  | FeatureCollection<TGeom, ContourProperties>
+  | FeatureCollection<TGeom | Point, InterpolatedContourOrExtremaProperties> {
+  if (!extrema) {
+    return contourCollection;
+  }
+
+  const extremaCollection = gridExtremaToGeoJSON(
+    findGridExtrema2D(grid, x0, step, toExtremaOptions(extrema)),
+  );
+  return mergeContourWithExtrema(contourCollection, extremaCollection);
+}
+
+function mergeContourWithExtrema<TGeom extends LineString | MultiPolygon>(
+  contourCollection: FeatureCollection<TGeom, ContourProperties>,
+  extremaCollection: FeatureCollection<Point, GridExtremaGeoJSONProperties>,
+): FeatureCollection<TGeom | Point, InterpolatedContourOrExtremaProperties> {
+  return {
+    type: "FeatureCollection",
+    features: [
+      ...(contourCollection.features as Array<
+        Feature<TGeom | Point, InterpolatedContourOrExtremaProperties>
+      >),
+      ...(extremaCollection.features as Array<
+        Feature<TGeom | Point, InterpolatedContourOrExtremaProperties>
+      >),
+    ],
+  };
 }
 
 function validateSphericalCoordinates(points: number[][]): void {
@@ -457,6 +614,27 @@ function transformIsobandsFromLambert(
               return lambertToGeo(projection, pos[0], pos[1]);
             }),
           ),
+        ),
+      },
+    })),
+  };
+}
+
+function transformExtremaFromLambert(
+  collection: FeatureCollection<Point, GridExtremaGeoJSONProperties>,
+  projection: LambertProjection,
+): FeatureCollection<Point, GridExtremaGeoJSONProperties> {
+  return {
+    type: "FeatureCollection",
+    features: collection.features.map((feature) => ({
+      type: "Feature",
+      properties: feature.properties,
+      geometry: {
+        type: "Point",
+        coordinates: lambertToGeo(
+          projection,
+          feature.geometry.coordinates[0],
+          feature.geometry.coordinates[1],
         ),
       },
     })),

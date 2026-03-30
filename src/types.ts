@@ -82,6 +82,7 @@ export interface InterpolateGeoJSONOptions {
   resolution?: number | readonly [number, number];
   padding?: number;
   barnesOptions?: BarnesOptions;
+  extrema?: boolean | GridExtremaOptions2D;
   sphericalOptions?: GeoJSONSphericalOptions;
   contourOptions: GridContourOptions;
 }
