@@ -311,10 +311,10 @@ describe("geojson", () => {
 
   it("can transform tuple array samples directly to GeoJSON via Spherical interpolation", () => {
     const samples: Tuple2DWithValue[] = [
-      [0.2, 0.2, 1.0],
-      [1.2, 1.1, 2.0],
-      [2.5, 0.7, 0.5],
-      [0.4, 1.7, 1.4],
+      [-128.1540069580078, 52.180999755859375, 1022.9],
+      [-93.73300170898438, 49.66400146484375, 1014.1],
+      [-122.95500183105469, 50.12900161743164, 1016.8],
+      [-105.48300170898438, 49.04999923706055, 1016],
     ];
 
     const lines = tupleArrayToGeoJSON(samples, "isolines", {
@@ -325,6 +325,22 @@ describe("geojson", () => {
     expect(lines.type).toBe("FeatureCollection");
     expect(lines.features.length).toBeGreaterThan(0);
     expect(lines.features[0].geometry.type).toBe("LineString");
+  });
+
+  it("throws a clear error when spherical tuple coordinates are lat/lon instead of lon/lat", () => {
+    const swappedSamples: Tuple2DWithValue[] = [
+      [52.180999755859375, -128.1540069580078, 1022.9],
+      [49.66400146484375, -93.73300170898438, 1014.1],
+      [50.12900161743164, -122.95500183105469, 1016.8],
+      [49.04999923706055, -105.48300170898438, 1016],
+    ];
+
+    expect(() =>
+      tupleArrayToGeoJSON(swappedSamples, "isolines", {
+        resolution: 64,
+        contourOptions: { spacing: 0.25, base: 0 },
+      }),
+    ).toThrow(/Coordinates appear swapped; expected \[longitude, latitude\]/i);
   });
 
   it("can interpolate tuple arrays the same was as GeoJSON feature collections", () => {

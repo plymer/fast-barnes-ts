@@ -196,6 +196,7 @@ export function handleSphericalMode(
   | FeatureCollection<LineString, ContourProperties>
   | FeatureCollection<MultiPolygon, ContourProperties> {
   const { points, values } = splitTuple2DArray(tupleArray);
+  validateSphericalCoordinates(points);
 
   const [rx, ry] = normalizeResolution(options.resolution);
   const projection = createLambertProjection(points, options.sphericalOptions);
@@ -266,6 +267,36 @@ export function handleSphericalMode(
     options.contourOptions,
   );
   return transformIsobandsFromLambert(bandsLambert, projection);
+}
+
+function validateSphericalCoordinates(points: number[][]): void {
+  // check only the first point for validity, since all points will be transformed to the same projection
+  const [lon, lat] = points[0];
+
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+    throw new Error(
+      `Invalid spherical coordinates: [${lon}, ${lat}]. Coordinates must be finite numbers in degrees as [longitude, latitude].`,
+    );
+  }
+
+  if (lat < -90 || lat > 90) {
+    const looksSwapped = lon >= -90 && lon <= 90 && lat >= -180 && lat <= 180;
+    if (looksSwapped) {
+      throw new Error(
+        `Invalid spherical coordinates: [${lon}, ${lat}] interpreted as [longitude, latitude]. Latitude must be within [-90, 90]. Coordinates appear swapped; expected [longitude, latitude] (lon, lat).`,
+      );
+    }
+
+    throw new Error(
+      `Invalid spherical coordinates: latitude ${lat} is out of range [-90, 90]. Expected [longitude, latitude] (lon, lat).`,
+    );
+  }
+
+  if (lon < -180 || lon > 180) {
+    throw new Error(
+      `Invalid spherical coordinates: longitude ${lon} is out of range [-180, 180]. Expected [longitude, latitude] (lon, lat).`,
+    );
+  }
 }
 
 interface LambertProjection {
