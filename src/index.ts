@@ -13,6 +13,7 @@ export {
   gridToIsobandsGeoJSON,
   gridToIsolinesGeoJSON,
   samplesFromGeoJSON,
+  tupleArrayToGeoJSON,
 } from "./geojson";
 
 export type {
