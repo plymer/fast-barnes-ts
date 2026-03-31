@@ -77,13 +77,13 @@ async function main() {
     selectedValueField,
     normalizeMode(mode),
     {
-    debug,
-    resolution: [resolutionX, resolutionY],
-    contourOptions: {
-      spacing,
-      base,
-      smooth: true,
-    },
+      debug,
+      resolution: [resolutionX, resolutionY],
+      contourOptions: {
+        spacing,
+        base,
+        smooth: true,
+      },
     },
   );
 

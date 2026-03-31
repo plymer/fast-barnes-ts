@@ -62,6 +62,7 @@ export interface GridContourOptions {
   spacing: number;
   base?: number;
   smooth?: boolean;
+  maskThreshold?: number;
 }
 
 export interface GeoJSONSphericalOptions {

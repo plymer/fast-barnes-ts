@@ -328,7 +328,9 @@ describe("geojson", () => {
       );
     };
 
-    const hasBoundarySegment = (coords: readonly (readonly number[])[]): boolean => {
+    const hasBoundarySegment = (
+      coords: readonly (readonly number[])[],
+    ): boolean => {
       for (let i = 0; i + 1 < coords.length; i++) {
         if (isBoundarySegment(coords[i], coords[i + 1])) {
           return true;
@@ -383,21 +385,21 @@ describe("geojson", () => {
     expect(bandHasBoundarySegments).toBe(true);
   });
 
-  it("removes interior hole-ring void boundaries from isolines", () => {
-    const sx = 33;
-    const sy = 33;
-    const cx = (sx - 1) / 2;
-    const cy = (sy - 1) / 2;
+  it("removes interior no-data (NaN) void boundaries from isolines", () => {
+    const sx = 25;
+    const sy = 25;
     const data = new Float32Array(sx * sy);
 
     for (let y = 0; y < sy; y++) {
       for (let x = 0; x < sx; x++) {
-        const dx = x - cx;
-        const dy = y - cy;
-        const r = Math.sqrt(dx * dx + dy * dy);
+        data[y * sx + x] = 2;
+      }
+    }
 
-        // Donut-shaped high region, producing one exterior ring and one interior hole ring.
-        data[y * sx + x] = r >= 6 && r <= 10 ? 1.5 : 0;
+    // Create a finite-data island with an internal no-data void.
+    for (let y = 9; y <= 15; y++) {
+      for (let x = 9; x <= 15; x++) {
+        data[y * sx + x] = Number.NaN;
       }
     }
 
@@ -413,17 +415,8 @@ describe("geojson", () => {
       smooth: false,
     });
 
-    expect(lines.features.length).toBeGreaterThan(0);
-
-    // The inner hole ring would sit near radius ~6; ensure no contour points remain there.
-    for (const feature of lines.features) {
-      for (const [x, y] of feature.geometry.coordinates) {
-        const dx = x - cx;
-        const dy = y - cy;
-        const r = Math.sqrt(dx * dx + dy * dy);
-        expect(r < 5.0 || r > 7.2).toBe(true);
-      }
-    }
+    // Without no-data boundary clipping, this emits rings around the NaN void.
+    expect(lines.features.length).toBe(0);
   });
 
   it("can transform tuple array samples directly to GeoJSON via Euclidian interpolation", () => {

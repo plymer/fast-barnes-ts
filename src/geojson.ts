@@ -821,13 +821,13 @@ export function gridToIsolinesGeoJSON(
     .smooth(options.smooth ?? true);
 
   const res = generator(Array.from(grid.data));
-  const contourBounds = getContourCoordinateBounds(res);
-  if (!contourBounds) {
-    return {
-      type: "FeatureCollection",
-      features: [],
-    };
-  }
+  const maskInfo = buildFiniteMaskInfo(
+    grid.data,
+    sx,
+    sy,
+    options.smooth ?? true,
+    options.maskThreshold ?? 1,
+  );
 
   const features: Array<Feature<LineString, ContourProperties>> = [];
 
@@ -836,19 +836,14 @@ export function gridToIsolinesGeoJSON(
     const polygons = item.coordinates as number[][][][];
 
     for (const polygon of polygons) {
-      for (let ringIndex = 0; ringIndex < polygon.length; ringIndex++) {
-        // Exclude interior hole rings so internal void boundaries are not emitted as isolines.
-        if (ringIndex > 0) {
-          continue;
-        }
-
-        const ring = polygon[ringIndex];
-        const clippedRings = splitRingByDomainEdgeSegments(ring, contourBounds);
+      for (const ring of polygon) {
+        const clippedRings = splitRingByMaskBoundarySegments(
+          ring,
+          maskInfo,
+          sx,
+          sy,
+        );
         for (const clippedRing of clippedRings) {
-          if (isAxisAlignedClosedRing(clippedRing)) {
-            continue;
-          }
-
           const coordinates = clippedRing.map((pos) =>
             transformPosition(pos, x0x, x0y, stepX, stepY),
           );
@@ -876,9 +871,11 @@ export function gridToIsolinesGeoJSON(
   };
 }
 
-function splitRingByDomainEdgeSegments(
+function splitRingByMaskBoundarySegments(
   ring: number[][],
-  bounds: ContourCoordinateBounds,
+  maskInfo: FiniteMaskInfo,
+  sx: number,
+  sy: number,
 ): number[][][] {
   if (ring.length < 2) {
     return [];
@@ -896,7 +893,7 @@ function splitRingByDomainEdgeSegments(
   for (let i = 0; i < segmentCount; i++) {
     const a = points[i];
     const b = points[(i + 1) % segmentCount];
-    const remove = isDomainBoundarySegment(a, b, bounds);
+    const remove = isMaskBoundarySegment(a, b, maskInfo, sx, sy);
     removeSegment[i] = remove;
     if (remove && firstRemovedIndex === -1) {
       firstRemovedIndex = i;
@@ -988,123 +985,132 @@ function hasFewerThanTwoDistinctPoints(
   return true;
 }
 
-function isDomainBoundarySegment(
-  a: readonly number[],
-  b: readonly number[],
-  bounds: ContourCoordinateBounds,
-): boolean {
-  if (!isDomainBoundaryPoint(a, bounds) || !isDomainBoundaryPoint(b, bounds)) {
-    return false;
+interface FiniteMaskInfo {
+  finiteMask: Uint8Array;
+  boundaryVertices: Set<string>;
+}
+
+function buildFiniteMaskInfo(
+  data: Float32Array,
+  sx: number,
+  sy: number,
+  smooth: boolean,
+  maskThreshold = 1,
+): FiniteMaskInfo {
+  const mask = new Uint8Array(data.length);
+  for (let i = 0; i < data.length; i++) {
+    mask[i] = Number.isFinite(data[i]) ? 1 : 0;
   }
 
-  return (
-    (isClose(a[0], bounds.minX, EDGE_EPS) &&
-      isClose(b[0], bounds.minX, EDGE_EPS)) ||
-    (isClose(a[0], bounds.maxX, EDGE_EPS) &&
-      isClose(b[0], bounds.maxX, EDGE_EPS)) ||
-    (isClose(a[1], bounds.minY, EDGE_EPS) &&
-      isClose(b[1], bounds.minY, EDGE_EPS)) ||
-    (isClose(a[1], bounds.maxY, EDGE_EPS) &&
-      isClose(b[1], bounds.maxY, EDGE_EPS))
-  );
-}
-
-function isDomainBoundaryPoint(
-  point: readonly number[],
-  bounds: ContourCoordinateBounds,
-): boolean {
-  return (
-    isClose(point[0], bounds.minX, EDGE_EPS) ||
-    isClose(point[0], bounds.maxX, EDGE_EPS) ||
-    isClose(point[1], bounds.minY, EDGE_EPS) ||
-    isClose(point[1], bounds.maxY, EDGE_EPS)
-  );
-}
-
-interface ContourCoordinateBounds {
-  minX: number;
-  maxX: number;
-  minY: number;
-  maxY: number;
-}
-
-function getContourCoordinateBounds(
-  contoursOut: Array<{ coordinates: number[][][][] }>,
-): ContourCoordinateBounds | null {
-  let minX = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
+  const boundaryVertices = new Set<string>();
+  const contoursOut = contours()
+    .size([sx, sy])
+    .thresholds([maskThreshold])
+    .smooth(smooth)(Array.from(mask));
 
   for (const contour of contoursOut) {
-    for (const polygon of contour.coordinates) {
+    const polygons = contour.coordinates as number[][][][];
+    for (const polygon of polygons) {
       for (const ring of polygon) {
         for (const pos of ring) {
-          const x = pos[0];
-          const y = pos[1];
-          if (x < minX) minX = x;
-          if (x > maxX) maxX = x;
-          if (y < minY) minY = y;
-          if (y > maxY) maxY = y;
+          boundaryVertices.add(pointKey(pos[0], pos[1]));
         }
       }
     }
   }
 
-  if (
-    !Number.isFinite(minX) ||
-    !Number.isFinite(maxX) ||
-    !Number.isFinite(minY) ||
-    !Number.isFinite(maxY)
-  ) {
-    return null;
+  return {
+    finiteMask: mask,
+    boundaryVertices,
+  };
+}
+
+function isMaskBoundarySegment(
+  a: readonly number[],
+  b: readonly number[],
+  maskInfo: FiniteMaskInfo,
+  sx: number,
+  sy: number,
+): boolean {
+  const aOnBoundary = maskInfo.boundaryVertices.has(pointKey(a[0], a[1]));
+  const bOnBoundary = maskInfo.boundaryVertices.has(pointKey(b[0], b[1]));
+
+  if (aOnBoundary && bOnBoundary) {
+    return true;
   }
 
-  return { minX, maxX, minY, maxY };
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const length = Math.sqrt(dx * dx + dy * dy);
+  if (!(length > POSITION_EPS)) {
+    return false;
+  }
+
+  const nx = -dy / length;
+  const ny = dx / length;
+
+  // Sample multiple points along the segment to robustly catch smoothed
+  // boundary-following geometry without over-fragmenting contours.
+  for (let k = 1; k <= MASK_SEGMENT_SAMPLE_COUNT; k++) {
+    const t = k / (MASK_SEGMENT_SAMPLE_COUNT + 1);
+    const sxPos = a[0] + dx * t;
+    const syPos = a[1] + dy * t;
+
+    const leftFinite = isFiniteMaskAt(
+      maskInfo.finiteMask,
+      sx,
+      sy,
+      sxPos + nx * MASK_SAMPLE_OFFSET,
+      syPos + ny * MASK_SAMPLE_OFFSET,
+    );
+    const rightFinite = isFiniteMaskAt(
+      maskInfo.finiteMask,
+      sx,
+      sy,
+      sxPos - nx * MASK_SAMPLE_OFFSET,
+      syPos - ny * MASK_SAMPLE_OFFSET,
+    );
+
+    if (leftFinite !== rightFinite) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function isFiniteMaskAt(
+  finiteMask: Uint8Array,
+  sx: number,
+  sy: number,
+  x: number,
+  y: number,
+): boolean {
+  const ix = Math.floor(x);
+  const iy = Math.floor(y);
+  if (ix < 0 || iy < 0 || ix >= sx || iy >= sy) {
+    return false;
+  }
+  return finiteMask[iy * sx + ix] === 1;
+}
+
+function pointKey(x: number, y: number): string {
+  const qx = Math.round(x / EDGE_EPS);
+  const qy = Math.round(y / EDGE_EPS);
+  return `${qx}:${qy}`;
 }
 
 const POSITION_EPS = 1e-9;
 const EDGE_EPS = 1e-2;
+const MASK_SAMPLE_OFFSET = 0.5;
+const MASK_SEGMENT_SAMPLE_COUNT = 3;
 
 function isClose(a: number, b: number, eps = 1e-9): boolean {
   return Math.abs(a - b) <= eps;
 }
 
 function positionsEqual(a: readonly number[], b: readonly number[]): boolean {
-  return (
-    isClose(a[0], b[0], POSITION_EPS) &&
-    isClose(a[1], b[1], POSITION_EPS)
-  );
-}
-
-function isAxisAlignedClosedRing(ring: readonly number[][]): boolean {
-  if (ring.length < 4) {
-    return false;
-  }
-
-  const firstRaw = ring[0];
-  const lastRaw = ring[ring.length - 1];
-  if (!positionsEqual(firstRaw, lastRaw)) {
-    return false;
-  }
-
-  const points = stripClosingPoint(ring as number[][]);
-  if (points.length < 4) {
-    return false;
-  }
-
-  for (let i = 0; i < points.length; i++) {
-    const a = points[i];
-    const b = points[(i + 1) % points.length];
-    const horizontal = isClose(a[1], b[1], EDGE_EPS);
-    const vertical = isClose(a[0], b[0], EDGE_EPS);
-
-    if (!horizontal && !vertical) {
-      return false;
-    }
-  }
-
-  return true;
+  return isClose(a[0], b[0], POSITION_EPS) && isClose(a[1], b[1], POSITION_EPS);
 }
 
 /**
