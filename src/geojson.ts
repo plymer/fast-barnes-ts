@@ -288,6 +288,34 @@ export function handleSphericalMode(
       MultiPolygon | Point,
       InterpolatedContourOrExtremaProperties
     > {
+  if (tupleArray.length === 0) {
+    return { type: "FeatureCollection", features: [] };
+  }
+
+  if (tupleArray.length === 1) {
+    const [x, y, value] = tupleArray[0];
+    return {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          properties: {
+            value,
+            kind: "max",
+            prominence: 0,
+            gridIndex: 0,
+            i: 0,
+            j: 0,
+          },
+          geometry: {
+            type: "Point",
+            coordinates: [x, y],
+          },
+        },
+      ],
+    };
+  }
+
   const { points, values } = splitTuple2DArray(tupleArray);
   validateSphericalCoordinates(points);
 

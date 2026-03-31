@@ -385,6 +385,52 @@ describe("geojson", () => {
     );
   });
 
+  it("handles empty input gracefully", () => {
+    const emptyFC: FeatureCollection<Point> = {
+      type: "FeatureCollection",
+      features: [],
+    };
+
+    const emptyLines = geoJSONtoGeoJSON(emptyFC, "value", "isolines", {
+      resolution: 64,
+      contourOptions: { spacing: 0.25, base: 0 },
+    });
+
+    expect(emptyLines.type).toBe("FeatureCollection");
+    expect(emptyLines.features.length).toBe(0);
+
+    const emptyTupleLines = tupleArrayToGeoJSON([], "isolines", {
+      resolution: 64,
+      contourOptions: { spacing: 0.25, base: 0 },
+    });
+
+    expect(emptyTupleLines.type).toBe("FeatureCollection");
+    expect(emptyTupleLines.features.length).toBe(0);
+  });
+
+  it("handles single-point input by creating a single Point feature", () => {
+    const singlePointFC: FeatureCollection<Point, GeoJsonProperties> = {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [0.5, 0.5] },
+          properties: { value: 1.0 },
+        },
+      ],
+    };
+
+    const result = geoJSONtoGeoJSON(singlePointFC, "value", "isolines", {
+      resolution: 64,
+      contourOptions: { spacing: 0.25, base: 0 },
+    });
+
+    expect(result.type).toBe("FeatureCollection");
+    expect(result.features.length).toBe(1);
+    expect(result.features[0].geometry.type).toBe("Point");
+    expect(result.features[0].properties.value).toBe(1.0);
+  });
+
   it("optionally appends extrema points to tupleArrayToGeoJSON output", () => {
     const samples: Tuple2DWithValue[] = [
       [0.0, 0.0, 0],

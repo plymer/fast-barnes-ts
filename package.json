@@ -1,7 +1,7 @@
 {
   "name": "@plymer/fast-barnes-ts",
   "private": false,
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Fast Barnes interpolation for irregularly spaced 1D, 2D and 3D sample data in TypeScript.",
   "keywords": [
     "barnes",
@@ -69,8 +69,8 @@
   "devDependencies": {
     "@types/d3-contour": "^3.0.6",
     "@types/geojson": "^7946.0.16",
-    "tsup": "^8.3.5",
-    "typescript": "^5.7.3",
-    "vitest": "^2.1.8"
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.2"
   }
 }
