@@ -291,6 +291,141 @@ describe("geojson", () => {
     expect(lines.features[0].geometry.type).toBe("LineString");
   });
 
+  it("clips domain-edge segments from isolines while keeping isobands unchanged", () => {
+    const sx = 8;
+    const sy = 6;
+    const data = new Float32Array(sx * sy);
+
+    for (let y = 0; y < sy; y++) {
+      for (let x = 0; x < sx; x++) {
+        data[y * sx + x] = x;
+      }
+    }
+
+    const grid = {
+      data,
+      shape: [sx, sy] as const,
+      dimension: 2 as const,
+    };
+
+    const xMin = 0;
+    const xMax = sx;
+    const yMin = 0;
+    const yMax = sy;
+    const eps = 0.02;
+
+    const isClose = (a: number, b: number): boolean => Math.abs(a - b) <= eps;
+
+    const isBoundarySegment = (
+      a: readonly number[],
+      b: readonly number[],
+    ): boolean => {
+      return (
+        (isClose(a[0], xMin) && isClose(b[0], xMin)) ||
+        (isClose(a[0], xMax) && isClose(b[0], xMax)) ||
+        (isClose(a[1], yMin) && isClose(b[1], yMin)) ||
+        (isClose(a[1], yMax) && isClose(b[1], yMax))
+      );
+    };
+
+    const hasBoundarySegment = (coords: readonly (readonly number[])[]): boolean => {
+      for (let i = 0; i + 1 < coords.length; i++) {
+        if (isBoundarySegment(coords[i], coords[i + 1])) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    const lines = gridToIsolinesGeoJSON(grid, [0, 0], [1, 1], {
+      spacing: 1,
+      base: 0,
+      smooth: true,
+    });
+
+    expect(lines.features.length).toBeGreaterThan(0);
+
+    let openLineCount = 0;
+    for (const feature of lines.features) {
+      const coords = feature.geometry.coordinates;
+      expect(hasBoundarySegment(coords)).toBe(false);
+
+      const first = coords[0];
+      const last = coords[coords.length - 1];
+      const isClosed = isClose(first[0], last[0]) && isClose(first[1], last[1]);
+      if (!isClosed) {
+        openLineCount++;
+      }
+    }
+
+    expect(openLineCount).toBeGreaterThan(0);
+
+    const bands = gridToIsobandsGeoJSON(grid, [0, 0], [1, 1], {
+      spacing: 1,
+      base: 0,
+      smooth: false,
+    });
+
+    let bandHasBoundarySegments = false;
+    for (const feature of bands.features) {
+      for (const polygon of feature.geometry.coordinates) {
+        for (const ring of polygon) {
+          if (hasBoundarySegment(ring)) {
+            bandHasBoundarySegments = true;
+            break;
+          }
+        }
+        if (bandHasBoundarySegments) break;
+      }
+      if (bandHasBoundarySegments) break;
+    }
+
+    expect(bandHasBoundarySegments).toBe(true);
+  });
+
+  it("removes interior hole-ring void boundaries from isolines", () => {
+    const sx = 33;
+    const sy = 33;
+    const cx = (sx - 1) / 2;
+    const cy = (sy - 1) / 2;
+    const data = new Float32Array(sx * sy);
+
+    for (let y = 0; y < sy; y++) {
+      for (let x = 0; x < sx; x++) {
+        const dx = x - cx;
+        const dy = y - cy;
+        const r = Math.sqrt(dx * dx + dy * dy);
+
+        // Donut-shaped high region, producing one exterior ring and one interior hole ring.
+        data[y * sx + x] = r >= 6 && r <= 10 ? 1.5 : 0;
+      }
+    }
+
+    const grid = {
+      data,
+      shape: [sx, sy] as const,
+      dimension: 2 as const,
+    };
+
+    const lines = gridToIsolinesGeoJSON(grid, [0, 0], [1, 1], {
+      spacing: 1,
+      base: 1,
+      smooth: false,
+    });
+
+    expect(lines.features.length).toBeGreaterThan(0);
+
+    // The inner hole ring would sit near radius ~6; ensure no contour points remain there.
+    for (const feature of lines.features) {
+      for (const [x, y] of feature.geometry.coordinates) {
+        const dx = x - cx;
+        const dy = y - cy;
+        const r = Math.sqrt(dx * dx + dy * dy);
+        expect(r < 5.0 || r > 7.2).toBe(true);
+      }
+    }
+  });
+
   it("can transform tuple array samples directly to GeoJSON via Euclidian interpolation", () => {
     const samples: Tuple2DWithValue[] = [
       [0.2, 0.2, 1.0],

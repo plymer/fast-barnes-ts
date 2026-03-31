@@ -329,7 +329,7 @@ export function findGridExtrema2D(
 
   const radius = options.radius ?? 1;
   const minSeparation = options.minSeparation ?? 2;
-  const minProminence = options.minProminence ?? 0;
+  const minProminence = options.minProminence ?? 0.01;
   const maxCountPerKind = options.maxCountPerKind;
   const ignoreBorder = options.ignoreBorder ?? true;
 

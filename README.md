@@ -107,6 +107,11 @@ const isobands = tupleArrayToGeoJSON(samples, "isobands", {
 
 Both `isolines` and `isobands` are returned as GeoJSON `FeatureCollection` objects.
 
+Isoline output is clipped at the interpolation domain edge, so contours end at
+the boundary instead of tracing the rectangular grid frame. Interior hole/void
+boundary rings are also excluded from isoline output. Isobands keep their full
+polygon geometry.
+
 Set `extrema: true` (or pass extrema options) to append local max/min `Point`
 features to the same output collection.
 

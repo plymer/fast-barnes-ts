@@ -795,6 +795,9 @@ export function gridToIsobandsGeoJSON(
 /**
  * Converts a 2D Barnes interpolation grid into GeoJSON isolines (`LineString` features).
  *
+ * Boundary-following contour segments that lie along the interpolation domain edge
+ * are removed so isolines terminate at the boundary instead of tracing it.
+ *
  * @param grid 2D interpolation result from `barnes(...)`.
  * @param x0 Grid origin in data coordinates.
  * @param step Grid spacing in data coordinates.
@@ -807,23 +810,62 @@ export function gridToIsolinesGeoJSON(
   step: ScalarOrVector,
   options: GridContourOptions,
 ): FeatureCollection<LineString, ContourProperties> {
-  const bands = gridToIsobandsGeoJSON(grid, x0, step, options);
+  ensure2DGrid(grid);
+  const [sx, sy] = grid.shape;
+  const [x0x, x0y] = normalize2DVector(x0, "x0");
+  const [stepX, stepY] = normalize2DVector(step, "step");
+
+  const generator = contours()
+    .size([sx, sy])
+    .thresholds(resolveThresholds(grid, options))
+    .smooth(options.smooth ?? true);
+
+  const res = generator(Array.from(grid.data));
+  const contourBounds = getContourCoordinateBounds(res);
+  if (!contourBounds) {
+    return {
+      type: "FeatureCollection",
+      features: [],
+    };
+  }
 
   const features: Array<Feature<LineString, ContourProperties>> = [];
 
-  for (const band of bands.features) {
-    const value = band.properties.value;
-    for (const polygon of band.geometry.coordinates) {
-      const rings = polygon;
-      for (const ring of rings) {
-        features.push({
-          type: "Feature",
-          properties: { value },
-          geometry: {
-            type: "LineString",
-            coordinates: ring,
-          },
-        });
+  for (const item of res) {
+    const value = item.value;
+    const polygons = item.coordinates as number[][][][];
+
+    for (const polygon of polygons) {
+      for (let ringIndex = 0; ringIndex < polygon.length; ringIndex++) {
+        // Exclude interior hole rings so internal void boundaries are not emitted as isolines.
+        if (ringIndex > 0) {
+          continue;
+        }
+
+        const ring = polygon[ringIndex];
+        const clippedRings = splitRingByDomainEdgeSegments(ring, contourBounds);
+        for (const clippedRing of clippedRings) {
+          if (isAxisAlignedClosedRing(clippedRing)) {
+            continue;
+          }
+
+          const coordinates = clippedRing.map((pos) =>
+            transformPosition(pos, x0x, x0y, stepX, stepY),
+          );
+
+          if (hasFewerThanTwoDistinctPoints(coordinates)) {
+            continue;
+          }
+
+          features.push({
+            type: "Feature",
+            properties: { value },
+            geometry: {
+              type: "LineString",
+              coordinates,
+            },
+          });
+        }
       }
     }
   }
@@ -832,6 +874,237 @@ export function gridToIsolinesGeoJSON(
     type: "FeatureCollection",
     features,
   };
+}
+
+function splitRingByDomainEdgeSegments(
+  ring: number[][],
+  bounds: ContourCoordinateBounds,
+): number[][][] {
+  if (ring.length < 2) {
+    return [];
+  }
+
+  const points = stripClosingPoint(ring);
+  if (points.length < 2) {
+    return [];
+  }
+
+  const segmentCount = points.length;
+  const removeSegment = new Array<boolean>(segmentCount);
+
+  let firstRemovedIndex = -1;
+  for (let i = 0; i < segmentCount; i++) {
+    const a = points[i];
+    const b = points[(i + 1) % segmentCount];
+    const remove = isDomainBoundarySegment(a, b, bounds);
+    removeSegment[i] = remove;
+    if (remove && firstRemovedIndex === -1) {
+      firstRemovedIndex = i;
+    }
+  }
+
+  if (firstRemovedIndex === -1) {
+    return [ring];
+  }
+
+  const out: number[][][] = [];
+  let run: number[][] = [];
+  const start = (firstRemovedIndex + 1) % segmentCount;
+
+  for (let k = 0; k < segmentCount; k++) {
+    const i = (start + k) % segmentCount;
+    const next = (i + 1) % segmentCount;
+
+    if (removeSegment[i]) {
+      if (run.length > 0) {
+        const cleanedRun = dedupeConsecutivePoints(run);
+        if (!hasFewerThanTwoDistinctPoints(cleanedRun)) {
+          out.push(cleanedRun);
+        }
+        run = [];
+      }
+      continue;
+    }
+
+    if (run.length === 0) {
+      run.push(points[i]);
+    }
+
+    run.push(points[next]);
+  }
+
+  if (run.length > 0) {
+    const cleanedRun = dedupeConsecutivePoints(run);
+    if (!hasFewerThanTwoDistinctPoints(cleanedRun)) {
+      out.push(cleanedRun);
+    }
+  }
+
+  return out;
+}
+
+function stripClosingPoint(ring: number[][]): number[][] {
+  if (ring.length < 2) {
+    return ring;
+  }
+
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  if (positionsEqual(first, last)) {
+    return ring.slice(0, -1);
+  }
+
+  return ring;
+}
+
+function dedupeConsecutivePoints(points: readonly number[][]): number[][] {
+  if (points.length < 2) {
+    return points.slice();
+  }
+
+  const out: number[][] = [points[0]];
+  for (let i = 1; i < points.length; i++) {
+    if (!positionsEqual(points[i], out[out.length - 1])) {
+      out.push(points[i]);
+    }
+  }
+  return out;
+}
+
+function hasFewerThanTwoDistinctPoints(
+  points: readonly (readonly number[])[],
+): boolean {
+  if (points.length < 2) {
+    return true;
+  }
+
+  const first = points[0];
+  for (let i = 1; i < points.length; i++) {
+    if (!positionsEqual(first, points[i])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function isDomainBoundarySegment(
+  a: readonly number[],
+  b: readonly number[],
+  bounds: ContourCoordinateBounds,
+): boolean {
+  if (!isDomainBoundaryPoint(a, bounds) || !isDomainBoundaryPoint(b, bounds)) {
+    return false;
+  }
+
+  return (
+    (isClose(a[0], bounds.minX, EDGE_EPS) &&
+      isClose(b[0], bounds.minX, EDGE_EPS)) ||
+    (isClose(a[0], bounds.maxX, EDGE_EPS) &&
+      isClose(b[0], bounds.maxX, EDGE_EPS)) ||
+    (isClose(a[1], bounds.minY, EDGE_EPS) &&
+      isClose(b[1], bounds.minY, EDGE_EPS)) ||
+    (isClose(a[1], bounds.maxY, EDGE_EPS) &&
+      isClose(b[1], bounds.maxY, EDGE_EPS))
+  );
+}
+
+function isDomainBoundaryPoint(
+  point: readonly number[],
+  bounds: ContourCoordinateBounds,
+): boolean {
+  return (
+    isClose(point[0], bounds.minX, EDGE_EPS) ||
+    isClose(point[0], bounds.maxX, EDGE_EPS) ||
+    isClose(point[1], bounds.minY, EDGE_EPS) ||
+    isClose(point[1], bounds.maxY, EDGE_EPS)
+  );
+}
+
+interface ContourCoordinateBounds {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
+function getContourCoordinateBounds(
+  contoursOut: Array<{ coordinates: number[][][][] }>,
+): ContourCoordinateBounds | null {
+  let minX = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+
+  for (const contour of contoursOut) {
+    for (const polygon of contour.coordinates) {
+      for (const ring of polygon) {
+        for (const pos of ring) {
+          const x = pos[0];
+          const y = pos[1];
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+  }
+
+  if (
+    !Number.isFinite(minX) ||
+    !Number.isFinite(maxX) ||
+    !Number.isFinite(minY) ||
+    !Number.isFinite(maxY)
+  ) {
+    return null;
+  }
+
+  return { minX, maxX, minY, maxY };
+}
+
+const POSITION_EPS = 1e-9;
+const EDGE_EPS = 1e-2;
+
+function isClose(a: number, b: number, eps = 1e-9): boolean {
+  return Math.abs(a - b) <= eps;
+}
+
+function positionsEqual(a: readonly number[], b: readonly number[]): boolean {
+  return (
+    isClose(a[0], b[0], POSITION_EPS) &&
+    isClose(a[1], b[1], POSITION_EPS)
+  );
+}
+
+function isAxisAlignedClosedRing(ring: readonly number[][]): boolean {
+  if (ring.length < 4) {
+    return false;
+  }
+
+  const firstRaw = ring[0];
+  const lastRaw = ring[ring.length - 1];
+  if (!positionsEqual(firstRaw, lastRaw)) {
+    return false;
+  }
+
+  const points = stripClosingPoint(ring as number[][]);
+  if (points.length < 4) {
+    return false;
+  }
+
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i];
+    const b = points[(i + 1) % points.length];
+    const horizontal = isClose(a[1], b[1], EDGE_EPS);
+    const vertical = isClose(a[0], b[0], EDGE_EPS);
+
+    if (!horizontal && !vertical) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 /**

@@ -4,10 +4,8 @@ import { fileURLToPath } from "node:url";
 
 import {
   barnes,
-  fromSamples,
   gridToIsobandsGeoJSON,
   gridToIsolinesGeoJSON,
-  toSamples,
 } from "../dist/index.js";
 
 function lcg(seed) {
@@ -48,24 +46,18 @@ async function main() {
 
   const { points, values } = makeSyntheticData(600, x0[0], x0[1], 20.0, 12.0);
 
-  const samples = toSamples(points, values);
-  const { points: pointsRoundTrip, values: valuesRoundTrip } =
-    fromSamples(samples);
-
-  const field = barnes(pointsRoundTrip, valuesRoundTrip, 0.9, x0, step, size, {
+  const field = barnes(points, values, 0.9, x0, step, size, {
     method: "optimized_convolution",
     numIter: 4,
     maxDist: 3.5,
   });
 
   const isobands = gridToIsobandsGeoJSON(field, x0, step, {
-    thresholds: 12,
     smooth: true,
     spacing: 0.5,
   });
 
   const isolines = gridToIsolinesGeoJSON(field, x0, step, {
-    thresholds: 12,
     smooth: true,
     spacing: 0.5,
   });

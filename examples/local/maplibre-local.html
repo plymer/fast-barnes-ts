@@ -127,7 +127,7 @@
 
     <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
     <script type="module">
-      import { interpolateGeoJSON } from "../../dist/index.js";
+      import { geoJSONtoGeoJSON } from "../../dist/index.js";
 
       const statusEl = document.getElementById("status");
       const fileInput = document.getElementById("fileInput");
@@ -248,6 +248,12 @@
         return n;
       }
 
+      function normalizeMode(mode) {
+        if (mode === "isoline") return "isolines";
+        if (mode === "isoband") return "isobands";
+        return mode;
+      }
+
       function readControls() {
         const field = fieldInput.value.trim();
         if (!field) throw new Error("Value field is required");
@@ -288,10 +294,10 @@
         try {
           const { field, mode, options } = readControls();
           const start = performance.now();
-          const result = interpolateGeoJSON(
+          const result = geoJSONtoGeoJSON(
             loadedFeatureCollection,
             field,
-            mode,
+            normalizeMode(mode),
             options,
           );
           renderResult(result, mode);
