@@ -19,7 +19,7 @@ function lcg(seed: number): () => number {
   };
 }
 
-const OUTPUT_PRECISION_SCALE = 1e5;
+const OUTPUT_PRECISION_SCALE = 1e3;
 
 function expectRoundedToFiveDecimals(value: number): void {
   const rounded =

@@ -585,7 +585,7 @@ function lambertToGeo(
   return [lon, lat];
 }
 
-const OUTPUT_MAX_DECIMALS = 5;
+const OUTPUT_MAX_DECIMALS = 3;
 const OUTPUT_PRECISION_SCALE = 10 ** OUTPUT_MAX_DECIMALS;
 
 function roundOutputNumber(value: number): number {
