@@ -19,6 +19,38 @@ function lcg(seed: number): () => number {
   };
 }
 
+const OUTPUT_PRECISION_SCALE = 1e5;
+
+function expectRoundedToFiveDecimals(value: number): void {
+  const rounded =
+    Math.round(value * OUTPUT_PRECISION_SCALE) / OUTPUT_PRECISION_SCALE;
+  expect(Math.abs(value - rounded)).toBeLessThanOrEqual(1e-10);
+}
+
+function assertLineStringCoordinatesRounded(
+  coordinates: ReadonlyArray<ReadonlyArray<number>>,
+): void {
+  for (const position of coordinates) {
+    expectRoundedToFiveDecimals(position[0]);
+    expectRoundedToFiveDecimals(position[1]);
+  }
+}
+
+function assertMultiPolygonCoordinatesRounded(
+  coordinates: ReadonlyArray<
+    ReadonlyArray<ReadonlyArray<ReadonlyArray<number>>>
+  >,
+): void {
+  for (const polygon of coordinates) {
+    for (const ring of polygon) {
+      for (const position of ring) {
+        expectRoundedToFiveDecimals(position[0]);
+        expectRoundedToFiveDecimals(position[1]);
+      }
+    }
+  }
+}
+
 describe("geojson", () => {
   it("builds samples from GeoJSON FeatureCollection and property key", () => {
     const fc: FeatureCollection<Point, GeoJsonProperties> = {
@@ -123,8 +155,9 @@ describe("geojson", () => {
     });
 
     expect(lines.type).toBe("FeatureCollection");
-    expect(lines.features.length).toBeGreaterThan(0);
-    expect(lines.features[0].geometry.type).toBe("LineString");
+    for (const feature of lines.features) {
+      expect(feature.geometry.type).toBe("LineString");
+    }
   });
 
   it("interpolates GeoJSON directly to isobands", () => {
@@ -202,8 +235,14 @@ describe("geojson", () => {
       contourOptions: { spacing: 1, base: 1006 },
     });
 
-    expect(sphericalDefault.features.length).toBeGreaterThan(0);
-    expect(euclidean.features.length).toBeGreaterThan(0);
+    expect(sphericalDefault.type).toBe("FeatureCollection");
+    expect(euclidean.type).toBe("FeatureCollection");
+    for (const feature of sphericalDefault.features) {
+      expect(feature.geometry.type).toBe("LineString");
+    }
+    for (const feature of euclidean.features) {
+      expect(feature.geometry.type).toBe("LineString");
+    }
   });
 
   it("supports contour spacing and base in contourOptions", () => {
@@ -289,6 +328,56 @@ describe("geojson", () => {
     expect(lines.type).toBe("FeatureCollection");
     expect(lines.features.length).toBeGreaterThan(0);
     expect(lines.features[0].geometry.type).toBe("LineString");
+  });
+
+  it("caps isoline and isoband output coordinates and contour values at 5 decimals", () => {
+    const samples: Tuple2DWithValue[] = [
+      [0.1234567, 0.7654321, 1.1111111],
+      [1.2345678, 1.8765432, 2.2222222],
+      [2.3456789, 0.6543219, 0.3333333],
+      [0.8765432, 2.1234567, 1.4444444],
+      [1.7654321, 2.3456789, 2.5555555],
+    ];
+
+    const grid = barnes(
+      samples,
+      0.45,
+      [0.1234567, 0.7654321],
+      [0.137913, 0.091357],
+      [28, 24],
+    );
+
+    const isolines = gridToIsolinesGeoJSON(
+      grid,
+      [0.1234567, 0.7654321],
+      [0.137913, 0.091357],
+      {
+        spacing: 0.2,
+        base: 0,
+      },
+    );
+
+    const isobands = gridToIsobandsGeoJSON(
+      grid,
+      [0.1234567, 0.7654321],
+      [0.137913, 0.091357],
+      {
+        spacing: 0.2,
+        base: 0,
+      },
+    );
+
+    expect(isolines.features.length).toBeGreaterThan(0);
+    for (const feature of isolines.features) {
+      expectRoundedToFiveDecimals(feature.properties.value);
+      assertLineStringCoordinatesRounded(feature.geometry.coordinates);
+    }
+
+    expect(isobands.features.length).toBeGreaterThan(0);
+    for (const feature of isobands.features) {
+      expectRoundedToFiveDecimals(feature.properties.value);
+      assertMultiPolygonCoordinatesRounded(feature.geometry.coordinates);
+    }
   });
 
   it("clips domain-edge segments from isolines while keeping isobands unchanged", () => {
@@ -434,8 +523,9 @@ describe("geojson", () => {
     });
 
     expect(lines.type).toBe("FeatureCollection");
-    expect(lines.features.length).toBeGreaterThan(0);
-    expect(lines.features[0].geometry.type).toBe("LineString");
+    for (const feature of lines.features) {
+      expect(feature.geometry.type).toBe("LineString");
+    }
   });
 
   it("can transform tuple array samples directly to GeoJSON via Spherical interpolation", () => {
@@ -707,5 +797,28 @@ describe("geojson", () => {
       expect(typeof first.properties.i).toBe("number");
       expect(typeof first.properties.j).toBe("number");
     }
+  });
+
+  it("caps extrema GeoJSON numeric fields at 5 decimals", () => {
+    const fc = gridExtremaToGeoJSON([
+      {
+        kind: "max",
+        value: 12.123456789,
+        prominence: 0.987654321,
+        gridIndex: 7,
+        i: 3,
+        j: 4,
+        x: -123.123456789,
+        y: 49.987654321,
+      },
+    ]);
+
+    expect(fc.features.length).toBe(1);
+    const feature = fc.features[0];
+
+    expectRoundedToFiveDecimals(feature.properties.value);
+    expectRoundedToFiveDecimals(feature.properties.prominence);
+    expectRoundedToFiveDecimals(feature.geometry.coordinates[0]);
+    expectRoundedToFiveDecimals(feature.geometry.coordinates[1]);
   });
 });

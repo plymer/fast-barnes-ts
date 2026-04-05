@@ -279,4 +279,45 @@ describe("barnes", () => {
     // Strongest low should be retained near profile minimum.
     expect(minimaSuppressed.some((e) => e.i === 7 && e.j === yMid)).toBe(true);
   });
+
+  it("enforces ignoreBorder at non-finite domain edges", () => {
+    const sx = 6;
+    const sy = 6;
+    const data = new Float32Array(sx * sy);
+    data.fill(0);
+
+    // Simulate a masked domain edge along the left side.
+    for (let j = 0; j < sy; j++) {
+      data[j * sx] = Number.NaN;
+    }
+
+    // This max touches the masked edge via radius-1 neighborhood.
+    data[3 * sx + 1] = 10;
+    // This max is fully interior and should survive.
+    data[3 * sx + 4] = 9;
+
+    const grid = {
+      data,
+      shape: [sx, sy] as const,
+      dimension: 2 as const,
+    };
+
+    const withBorderIgnored = findGridExtrema2D(grid, [0, 0], [1, 1], {
+      radius: 1,
+      minSeparation: 0,
+      minProminence: 0.5,
+      ignoreBorder: true,
+    }).filter((e) => e.kind === "max");
+
+    const withBorderIncluded = findGridExtrema2D(grid, [0, 0], [1, 1], {
+      radius: 1,
+      minSeparation: 0,
+      minProminence: 0.5,
+      ignoreBorder: false,
+    }).filter((e) => e.kind === "max");
+
+    expect(withBorderIncluded.some((e) => e.i === 1 && e.j === 3)).toBe(true);
+    expect(withBorderIgnored.some((e) => e.i === 1 && e.j === 3)).toBe(false);
+    expect(withBorderIgnored.some((e) => e.i === 4 && e.j === 3)).toBe(true);
+  });
 });

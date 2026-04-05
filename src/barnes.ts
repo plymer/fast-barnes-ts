@@ -373,6 +373,7 @@ export function findGridExtrema2D(
       let maxNeighbor = Number.NEGATIVE_INFINITY;
       let minNeighbor = Number.POSITIVE_INFINITY;
       let hasNeighbor = false;
+      let touchesInvalidNeighbor = false;
 
       const jMin = Math.max(0, j - radius);
       const jMax = Math.min(sy - 1, j + radius);
@@ -384,7 +385,13 @@ export function findGridExtrema2D(
         for (let ni = iMin; ni <= iMax; ni++) {
           if (ni === i && nj === j) continue;
           const neighbor = data[nRow + ni];
-          if (!Number.isFinite(neighbor)) continue;
+          if (!Number.isFinite(neighbor)) {
+            if (ignoreBorder) {
+              touchesInvalidNeighbor = true;
+              break;
+            }
+            continue;
+          }
 
           hasNeighbor = true;
           if (neighbor > maxNeighbor) maxNeighbor = neighbor;
@@ -395,9 +402,10 @@ export function findGridExtrema2D(
 
           if (!isMax && !isMin) break;
         }
-        if (!isMax && !isMin) break;
+        if (touchesInvalidNeighbor || (!isMax && !isMin)) break;
       }
 
+      if (touchesInvalidNeighbor) continue;
       if (!hasNeighbor) continue;
 
       if (isMax) {

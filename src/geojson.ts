@@ -300,7 +300,7 @@ export function handleSphericalMode(
         {
           type: "Feature",
           properties: {
-            value,
+            value: roundOutputNumber(value),
             kind: "max",
             prominence: 0,
             gridIndex: 0,
@@ -309,7 +309,7 @@ export function handleSphericalMode(
           },
           geometry: {
             type: "Point",
-            coordinates: [x, y],
+            coordinates: [roundOutputNumber(x), roundOutputNumber(y)],
           },
         },
       ],
@@ -576,10 +576,23 @@ function lambertToGeo(
     rho = -rho;
   }
   const theta = Math.atan2(x, arg);
-  const lat =
-    Math.atan((proj.f / rho) ** proj.nInv) / HALF_RAD_PER_DEGREE - 90.0;
-  const lon = proj.centerLon + theta / proj.n / RAD_PER_DEGREE;
+  const lat = roundOutputNumber(
+    Math.atan((proj.f / rho) ** proj.nInv) / HALF_RAD_PER_DEGREE - 90.0,
+  );
+  const lon = roundOutputNumber(
+    proj.centerLon + theta / proj.n / RAD_PER_DEGREE,
+  );
   return [lon, lat];
+}
+
+const OUTPUT_MAX_DECIMALS = 5;
+const OUTPUT_PRECISION_SCALE = 10 ** OUTPUT_MAX_DECIMALS;
+
+function roundOutputNumber(value: number): number {
+  if (!Number.isFinite(value)) {
+    return value;
+  }
+  return Math.round(value * OUTPUT_PRECISION_SCALE) / OUTPUT_PRECISION_SCALE;
 }
 
 function getPointBounds(points: number[][]): {
@@ -771,16 +784,18 @@ export function gridToIsobandsGeoJSON(
     (item) => ({
       type: "Feature",
       properties: {
-        value: item.value,
+        value: roundOutputNumber(item.value),
       },
       geometry: {
         type: "MultiPolygon",
-        coordinates: transformMultiPolygon(
-          item.coordinates as number[][][][],
-          x0x,
-          x0y,
-          stepX,
-          stepY,
+        coordinates: roundMultiPolygonCoordinates(
+          transformMultiPolygon(
+            item.coordinates as number[][][][],
+            x0x,
+            x0y,
+            stepX,
+            stepY,
+          ),
         ),
       },
     }),
@@ -832,7 +847,7 @@ export function gridToIsolinesGeoJSON(
   const features: Array<Feature<LineString, ContourProperties>> = [];
 
   for (const item of res) {
-    const value = item.value;
+    const value = roundOutputNumber(item.value);
     const polygons = item.coordinates as number[][][][];
 
     for (const polygon of polygons) {
@@ -852,12 +867,16 @@ export function gridToIsolinesGeoJSON(
             continue;
           }
 
+          const roundedCoordinates = coordinates.map((position) =>
+            roundPosition(position),
+          );
+
           features.push({
             type: "Feature",
             properties: { value },
             geometry: {
               type: "LineString",
-              coordinates,
+              coordinates: roundedCoordinates,
             },
           });
         }
@@ -1131,15 +1150,15 @@ export function gridExtremaToGeoJSON(
       type: "Feature",
       properties: {
         kind: item.kind,
-        value: item.value,
-        prominence: item.prominence,
+        value: roundOutputNumber(item.value),
+        prominence: roundOutputNumber(item.prominence),
         gridIndex: item.gridIndex,
         i: item.i,
         j: item.j,
       },
       geometry: {
         type: "Point",
-        coordinates: [item.x, item.y],
+        coordinates: [roundOutputNumber(item.x), roundOutputNumber(item.y)],
       },
     };
   }
@@ -1279,6 +1298,19 @@ function transformMultiPolygon(
       ring.map((pos) => transformPosition(pos, x0, y0, stepX, stepY)),
     ),
   );
+}
+
+function roundMultiPolygonCoordinates(coords: Position[][][]): Position[][][] {
+  return coords.map((polygon) =>
+    polygon.map((ring) => ring.map((position) => roundPosition(position))),
+  );
+}
+
+function roundPosition(pos: readonly number[]): Position {
+  if (pos.length < 2) {
+    throw new Error(`Invalid contour coordinate: ${pos}`);
+  }
+  return [roundOutputNumber(pos[0]), roundOutputNumber(pos[1])];
 }
 
 function transformPosition(
