@@ -59,7 +59,7 @@ export function barnes(
  * @param x0 Grid origin per dimension (scalar or vector).
  * @param step Grid spacing per dimension (scalar or vector).
  * @param size Grid size per dimension.
- * @param options Interpolation options such as method, iterations, and distance cutoff.
+ * @param options Options for interpolation method, number of iterations, and sigma distance cutoff.
  * @returns Flat grid result with metadata (`shape`, `dimension`).
  */
 export function barnes(
@@ -112,7 +112,7 @@ export function barnes(
 
   const method = options.method ?? "optimized_convolution";
   const numIter = options.numIter ?? 4;
-  const maxDist = options.maxDist ?? 3.5;
+  const maxDist = options.maxDist ?? 3.717;
 
   if (!Number.isInteger(numIter) || numIter < 1) {
     throw new Error(`numIter must be a positive integer, got ${numIter}`);
@@ -120,33 +120,33 @@ export function barnes(
 
   const maxDistWeight = Math.exp(-(maxDist ** 2) / 2.0);
 
-  if (method === "optimized_convolution") {
-    const kernelSize = getKernelSizeOpt(
-      normalized.sigma,
-      normalized.step,
-      numIter,
-    );
-    assertKernelFits(kernelSize, normalized.size);
-    return interpolateFast(normalized, numIter, maxDistWeight, true);
-  }
+  switch (method) {
+    case "optimized_convolution":
+      const optimizedKernelSize = getKernelSizeOpt(
+        normalized.sigma,
+        normalized.step,
+        numIter,
+      );
+      assertKernelFits(optimizedKernelSize, normalized.size);
+      return interpolateFast(normalized, numIter, maxDistWeight, true);
 
-  if (method === "convolution") {
-    const kernelSize = getKernelSize(
-      normalized.sigma,
-      normalized.step,
-      numIter,
-    );
-    assertKernelFits(kernelSize, normalized.size);
-    return interpolateFast(normalized, numIter, maxDistWeight, false);
-  }
+    case "convolution":
+      const kernelSize = getKernelSize(
+        normalized.sigma,
+        normalized.step,
+        numIter,
+      );
+      assertKernelFits(kernelSize, normalized.size);
+      return interpolateFast(normalized, numIter, maxDistWeight, false);
 
-  if (method === "naive") {
-    return interpolateNaive(normalized);
-  }
+    case "naive":
+      return interpolateNaive(normalized);
 
-  throw new Error(
-    `Unsupported Barnes method: ${String(method satisfies never)}`,
-  );
+    default:
+      throw new Error(
+        `Unsupported Barnes method: ${String(method satisfies never)}`,
+      );
+  }
 }
 
 function isTupleArrayInput(
