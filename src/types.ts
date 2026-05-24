@@ -1,5 +1,7 @@
 export type BarnesMethod = "optimized_convolution" | "convolution" | "naive";
 
+export type CoordinateMode = "euclidean" | "spherical";
+
 export interface BarnesOptions {
   method?: BarnesMethod;
   numIter?: number;
@@ -75,7 +77,7 @@ export type GeoJSONInterpolationMode = "isobands" | "isolines";
 
 export interface InterpolateGeoJSONOptions {
   debug?: boolean;
-  coordinateMode?: "euclidean" | "spherical";
+  coordinateMode?: CoordinateMode;
   sigma?: ScalarOrVector;
   x0?: ScalarOrVector;
   step?: ScalarOrVector;

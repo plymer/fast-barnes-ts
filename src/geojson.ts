@@ -21,6 +21,7 @@ import type {
   Tuple2DWithValue,
 } from "./types";
 import { barnes, findGridExtrema2D } from "./barnes";
+import { normalizeResolution, resolveThresholds } from "./helpers";
 
 export interface ContourProperties {
   value: number;
@@ -1212,78 +1213,6 @@ function normalize2DSize(size: number | readonly number[]): [number, number] {
     throw new Error(`size values must be >= 2, got [${sx}, ${sy}]`);
   }
   return [sx, sy];
-}
-
-function normalizeResolution(
-  resolution: number | readonly [number, number] | undefined,
-): [number, number] {
-  if (resolution === undefined) {
-    return [128, 128];
-  }
-
-  if (typeof resolution === "number") {
-    const r = Math.trunc(resolution);
-    if (r < 2) {
-      throw new Error(`resolution must be >= 2, got ${resolution}`);
-    }
-    return [r, r];
-  }
-
-  const rx = Math.trunc(resolution[0]);
-  const ry = Math.trunc(resolution[1]);
-  if (rx < 2 || ry < 2) {
-    throw new Error(
-      `resolution values must be >= 2, got [${resolution[0]}, ${resolution[1]}]`,
-    );
-  }
-  return [rx, ry];
-}
-
-function resolveThresholds(
-  grid: BarnesResult,
-  options: GridContourOptions,
-): number[] {
-  const { spacing, base } = options;
-  if (!(spacing > 0)) {
-    throw new Error(`spacing must be > 0, got ${spacing}`);
-  }
-
-  const baseValue = base ?? 0;
-  return buildSpacedThresholds(grid.data, spacing, baseValue);
-}
-
-function buildSpacedThresholds(
-  data: Float32Array,
-  spacing: number,
-  base: number,
-): number[] {
-  let min = Number.POSITIVE_INFINITY;
-  let max = Number.NEGATIVE_INFINITY;
-
-  for (let i = 0; i < data.length; i++) {
-    const value = data[i];
-    if (!Number.isFinite(value)) continue;
-    if (value < min) min = value;
-    if (value > max) max = value;
-  }
-
-  if (!Number.isFinite(min) || !Number.isFinite(max)) {
-    return [];
-  }
-
-  const startK = Math.ceil((min - base) / spacing);
-  const endK = Math.floor((max - base) / spacing);
-
-  if (startK > endK) {
-    return [];
-  }
-
-  const levels: number[] = [];
-  for (let k = startK; k <= endK; k++) {
-    levels.push(base + k * spacing);
-  }
-
-  return levels;
 }
 
 function transformMultiPolygon(
