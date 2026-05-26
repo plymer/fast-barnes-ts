@@ -159,10 +159,88 @@ Additional utility helpers:
 - `toNestedArray(result)`
 - `findGridExtrema2D(grid, x0, step, options?)`
 - `gridExtremaToGeoJSON(extrema)`
+- `getBarnesParams(tupleData, options)`
+- `normalizeResolution(resolution)`
+- `buildSpacedThresholds(data, spacing, base)`
+- `resolveThresholds(grid, contourOptions)`
 - `getHalfKernelSize(...)`
 - `getHalfKernelSizeOpt(...)`
 - `getTailValue(...)`
 - `getSigmaEffective(...)`
+
+### `getBarnesParams(tupleData, options)`
+
+Builds `x0`, `step`, and `size` for 2D interpolation directly from tuple samples.
+
+Euclidean mode:
+
+```ts
+import { getBarnesParams, type Tuple2DWithValue } from "fast-barnes-ts";
+
+const samples: Tuple2DWithValue[] = [
+  [0.2, 0.2, 1.0],
+  [1.2, 1.1, 2.0],
+  [2.5, 0.7, 0.5],
+  [0.4, 1.7, 1.4],
+];
+
+const { x0, step, size } = getBarnesParams(samples, {
+  mode: "euclidean",
+  resolution: 64,
+  padding: 0.05,
+});
+```
+
+Spherical mode (`[longitude, latitude, value]` input) returns projected-grid
+params plus projection helpers:
+
+```ts
+import {
+  barnes,
+  getBarnesParams,
+  type LambertProjectionParams,
+  type Tuple2DWithValue,
+} from "fast-barnes-ts";
+
+const stations: Tuple2DWithValue[] = [
+  [-128.154, 52.181, 1022.9],
+  [-93.733, 49.664, 1014.1],
+  [-122.955, 50.129, 1016.8],
+  [-105.483, 49.05, 1016.0],
+];
+
+const params = getBarnesParams(stations, {
+  mode: "spherical",
+  resolution: 128,
+  sphericalOptions: {
+    lambertPadding: 0.05,
+  },
+});
+
+const projectedPoints = stations.map(([lon, lat]) => params.project(lon, lat));
+const values = stations.map(([, , value]) => value);
+
+const grid = barnes(
+  projectedPoints,
+  values,
+  Math.max(params.step[0], params.step[1]) * 2,
+  params.x0,
+  params.step,
+  params.size,
+);
+
+// Inverse-project a grid coordinate back to lon/lat.
+const lonLat = params.unproject(params.x0[0], params.x0[1]);
+
+// Optional explicit typing if needed downstream.
+const projection: LambertProjectionParams = params.projection;
+```
+
+Notes:
+
+- Spherical coordinates must be in `[longitude, latitude]` order.
+- `getBarnesParams` throws for empty input.
+- Spherical mode validates latitude/longitude ranges and throws clear errors for swapped lat/lon input.
 
 ## Finding High/Low Pressure Centres
 

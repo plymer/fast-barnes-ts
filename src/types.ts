@@ -73,6 +73,15 @@ export interface GeoJSONSphericalOptions {
   lambertPadding?: number;
 }
 
+export interface LambertProjectionParams {
+  centerLon: number;
+  centerLat: number;
+  n: number;
+  nInv: number;
+  f: number;
+  rho0: number;
+}
+
 export type GeoJSONInterpolationMode = "isobands" | "isolines";
 
 export interface InterpolateGeoJSONOptions {

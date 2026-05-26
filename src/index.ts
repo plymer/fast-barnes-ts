@@ -29,6 +29,7 @@ export type {
   GeoJSONSphericalOptions,
   GridContourOptions,
   InterpolateGeoJSONOptions,
+  LambertProjectionParams,
   PointInput,
   ScalarOrVector,
   SizeInput,

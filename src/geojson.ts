@@ -11,17 +11,24 @@ import type {
 import type {
   InterpolateGeoJSONOptions,
   GeoJSONInterpolationMode,
-  GeoJSONSphericalOptions,
   BarnesResult,
   GridExtremaGeoJSONProperties,
   GridExtremaOptions2D,
   GridExtremaPoint2D,
   GridContourOptions,
+  LambertProjectionParams,
   ScalarOrVector,
   Tuple2DWithValue,
 } from "./types";
 import { barnes, findGridExtrema2D } from "./barnes";
 import { normalizeResolution, resolveThresholds } from "./helpers";
+import {
+  createLambertProjection,
+  getPointBounds,
+  lambertToGeo,
+  lambertToMap,
+  validateSphericalCoordinates,
+} from "./spherical";
 
 export interface ContourProperties {
   value: number;
@@ -323,12 +330,6 @@ export function handleSphericalMode(
   const [rx, ry] = normalizeResolution(options.resolution);
   const projection = createLambertProjection(points, options.sphericalOptions);
 
-  if (!projection) {
-    throw new Error(
-      "Failed to create Lambert projection for spherical interpolation",
-    );
-  }
-
   const mappedPoints = points.map((p) => lambertToMap(projection, p[0], p[1]));
 
   const padding =
@@ -457,135 +458,6 @@ function mergeContourWithExtrema<TGeom extends LineString | MultiPolygon>(
   };
 }
 
-function validateSphericalCoordinates(points: number[][]): void {
-  // check only the first point for validity, since all points will be transformed to the same projection
-  const [lon, lat] = points[0];
-
-  if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
-    throw new Error(
-      `Invalid spherical coordinates: [${lon}, ${lat}]. Coordinates must be finite numbers in degrees as [longitude, latitude].`,
-    );
-  }
-
-  if (lat < -90 || lat > 90) {
-    const looksSwapped = lon >= -90 && lon <= 90 && lat >= -180 && lat <= 180;
-    if (looksSwapped) {
-      throw new Error(
-        `Invalid spherical coordinates: [${lon}, ${lat}] interpreted as [longitude, latitude]. Latitude must be within [-90, 90]. Coordinates appear swapped; expected [longitude, latitude] (lon, lat).`,
-      );
-    }
-
-    throw new Error(
-      `Invalid spherical coordinates: latitude ${lat} is out of range [-90, 90]. Expected [longitude, latitude] (lon, lat).`,
-    );
-  }
-
-  if (lon < -180 || lon > 180) {
-    throw new Error(
-      `Invalid spherical coordinates: longitude ${lon} is out of range [-180, 180]. Expected [longitude, latitude] (lon, lat).`,
-    );
-  }
-}
-
-interface LambertProjection {
-  centerLon: number;
-  centerLat: number;
-  n: number;
-  nInv: number;
-  f: number;
-  rho0: number;
-}
-
-const RAD_PER_DEGREE = Math.PI / 180.0;
-const HALF_RAD_PER_DEGREE = RAD_PER_DEGREE / 2.0;
-
-function createLambertProjection(
-  points: number[][],
-  options: GeoJSONSphericalOptions | undefined,
-): LambertProjection | null {
-  const bounds = getPointBounds(points);
-  if (!bounds) {
-    throw new Error("Cannot determine projection bounds from empty points");
-  }
-
-  const centerLon = options?.center?.[0] ?? (bounds.minX + bounds.maxX) / 2;
-  const centerLat = options?.center?.[1] ?? (bounds.minY + bounds.maxY) / 2;
-
-  const spanLat = Math.max(0.1, bounds.maxY - bounds.minY);
-  const lat1Default = bounds.minY + spanLat * 0.25;
-  const lat2Default = bounds.minY + spanLat * 0.75;
-
-  let lat1 = options?.standardParallels?.[0] ?? lat1Default;
-  let lat2 = options?.standardParallels?.[1] ?? lat2Default;
-
-  lat1 = Math.max(-89.0, Math.min(89.0, lat1));
-  lat2 = Math.max(-89.0, Math.min(89.0, lat2));
-  if (Math.abs(lat1 - lat2) < 1e-8) {
-    lat2 = Math.min(89.0, lat1 + 0.5);
-  }
-
-  const lat1Rad = lat1 * RAD_PER_DEGREE;
-  const lat2Rad = lat2 * RAD_PER_DEGREE;
-
-  const n =
-    Math.abs(lat1 - lat2) > 1e-8
-      ? Math.log(Math.cos(lat1Rad) / Math.cos(lat2Rad)) /
-        Math.log(
-          Math.tan((90.0 + lat2) * HALF_RAD_PER_DEGREE) /
-            Math.tan((90.0 + lat1) * HALF_RAD_PER_DEGREE),
-        )
-      : Math.sin(lat1Rad);
-
-  const nInv = 1.0 / n;
-  const f =
-    (Math.cos(lat1Rad) * Math.tan((90.0 + lat1) * HALF_RAD_PER_DEGREE) ** n) /
-    n;
-  const rho0 = f / Math.tan((90.0 + centerLat) * HALF_RAD_PER_DEGREE) ** n;
-
-  return {
-    centerLon,
-    centerLat,
-    n,
-    nInv,
-    f,
-    rho0,
-  };
-}
-
-function lambertToMap(
-  proj: LambertProjection,
-  lon: number,
-  lat: number,
-): [number, number] {
-  const rho = proj.f / Math.tan((90.0 + lat) * HALF_RAD_PER_DEGREE) ** proj.n;
-  const arg = proj.n * (lon - proj.centerLon) * RAD_PER_DEGREE;
-  return [
-    (rho * Math.sin(arg)) / RAD_PER_DEGREE,
-    (proj.rho0 - rho * Math.cos(arg)) / RAD_PER_DEGREE,
-  ];
-}
-
-function lambertToGeo(
-  proj: LambertProjection,
-  mapX: number,
-  mapY: number,
-): [number, number] {
-  const x = mapX * RAD_PER_DEGREE;
-  const arg = proj.rho0 - mapY * RAD_PER_DEGREE;
-  let rho = Math.sqrt(x * x + arg * arg);
-  if (proj.n < 0.0) {
-    rho = -rho;
-  }
-  const theta = Math.atan2(x, arg);
-  const lat = roundOutputNumber(
-    Math.atan((proj.f / rho) ** proj.nInv) / HALF_RAD_PER_DEGREE - 90.0,
-  );
-  const lon = roundOutputNumber(
-    proj.centerLon + theta / proj.n / RAD_PER_DEGREE,
-  );
-  return [lon, lat];
-}
-
 const OUTPUT_MAX_DECIMALS = 3;
 const OUTPUT_PRECISION_SCALE = 10 ** OUTPUT_MAX_DECIMALS;
 
@@ -596,33 +468,9 @@ function roundOutputNumber(value: number): number {
   return Math.round(value * OUTPUT_PRECISION_SCALE) / OUTPUT_PRECISION_SCALE;
 }
 
-function getPointBounds(points: number[][]): {
-  minX: number;
-  maxX: number;
-  minY: number;
-  maxY: number;
-} | null {
-  if (points.length === 0) return null;
-
-  let minX = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-
-  for (let i = 0; i < points.length; i++) {
-    const [x, y] = points[i];
-    if (x < minX) minX = x;
-    if (x > maxX) maxX = x;
-    if (y < minY) minY = y;
-    if (y > maxY) maxY = y;
-  }
-
-  return { minX, maxX, minY, maxY };
-}
-
 function transformIsolinesFromLambert(
   collection: FeatureCollection<LineString, ContourProperties>,
-  projection: LambertProjection,
+  projection: LambertProjectionParams,
 ): FeatureCollection<LineString, ContourProperties> {
   return {
     type: "FeatureCollection",
@@ -632,7 +480,8 @@ function transformIsolinesFromLambert(
       geometry: {
         type: "LineString",
         coordinates: feature.geometry.coordinates.map((pos) => {
-          return lambertToGeo(projection, pos[0], pos[1]);
+          const [lon, lat] = lambertToGeo(projection, pos[0], pos[1]);
+          return [roundOutputNumber(lon), roundOutputNumber(lat)];
         }),
       },
     })),
@@ -641,7 +490,7 @@ function transformIsolinesFromLambert(
 
 function transformIsobandsFromLambert(
   collection: FeatureCollection<MultiPolygon, ContourProperties>,
-  projection: LambertProjection,
+  projection: LambertProjectionParams,
 ): FeatureCollection<MultiPolygon, ContourProperties> {
   return {
     type: "FeatureCollection",
@@ -653,7 +502,8 @@ function transformIsobandsFromLambert(
         coordinates: feature.geometry.coordinates.map((polygon) =>
           polygon.map((ring) =>
             ring.map((pos) => {
-              return lambertToGeo(projection, pos[0], pos[1]);
+              const [lon, lat] = lambertToGeo(projection, pos[0], pos[1]);
+              return [roundOutputNumber(lon), roundOutputNumber(lat)];
             }),
           ),
         ),
@@ -664,7 +514,7 @@ function transformIsobandsFromLambert(
 
 function transformExtremaFromLambert(
   collection: FeatureCollection<Point, GridExtremaGeoJSONProperties>,
-  projection: LambertProjection,
+  projection: LambertProjectionParams,
 ): FeatureCollection<Point, GridExtremaGeoJSONProperties> {
   return {
     type: "FeatureCollection",
@@ -673,11 +523,14 @@ function transformExtremaFromLambert(
       properties: feature.properties,
       geometry: {
         type: "Point",
-        coordinates: lambertToGeo(
-          projection,
-          feature.geometry.coordinates[0],
-          feature.geometry.coordinates[1],
-        ),
+        coordinates: (() => {
+          const [lon, lat] = lambertToGeo(
+            projection,
+            feature.geometry.coordinates[0],
+            feature.geometry.coordinates[1],
+          );
+          return [roundOutputNumber(lon), roundOutputNumber(lat)];
+        })(),
       },
     })),
   };
