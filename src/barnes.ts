@@ -88,10 +88,7 @@ export function barnes(
   let options: BarnesOptions;
   let normalized: NormalizedInput;
 
-  if (
-    isTupleArrayInput(ptsOrTupleArray) &&
-    (sizeOrOptions === undefined || isBarnesOptions(sizeOrOptions))
-  ) {
+  if (isTupleArrayInput(ptsOrTupleArray) && (sizeOrOptions === undefined || isBarnesOptions(sizeOrOptions))) {
     const tupleArray = ptsOrTupleArray;
     sigma = valOrSigma as ScalarOrVector;
     x0 = sigmaOrX0;
@@ -122,20 +119,12 @@ export function barnes(
 
   switch (method) {
     case "optimized_convolution":
-      const optimizedKernelSize = getKernelSizeOpt(
-        normalized.sigma,
-        normalized.step,
-        numIter,
-      );
+      const optimizedKernelSize = getKernelSizeOpt(normalized.sigma, normalized.step, numIter);
       assertKernelFits(optimizedKernelSize, normalized.size);
       return interpolateFast(normalized, numIter, maxDistWeight, true);
 
     case "convolution":
-      const kernelSize = getKernelSize(
-        normalized.sigma,
-        normalized.step,
-        numIter,
-      );
+      const kernelSize = getKernelSize(normalized.sigma, normalized.step, numIter);
       assertKernelFits(kernelSize, normalized.size);
       return interpolateFast(normalized, numIter, maxDistWeight, false);
 
@@ -143,23 +132,15 @@ export function barnes(
       return interpolateNaive(normalized);
 
     default:
-      throw new Error(
-        `Unsupported Barnes method: ${String(method satisfies never)}`,
-      );
+      throw new Error(`Unsupported Barnes method: ${String(method satisfies never)}`);
   }
 }
 
-function isTupleArrayInput(
-  value: PointInput | ReadonlyArray<TupleWithValue>,
-): value is ReadonlyArray<TupleWithValue> {
-  return (
-    Array.isArray(value) && (value.length === 0 || isTupleWithValue(value[0]))
-  );
+function isTupleArrayInput(value: PointInput | ReadonlyArray<TupleWithValue>): value is ReadonlyArray<TupleWithValue> {
+  return Array.isArray(value) && (value.length === 0 || isTupleWithValue(value[0]));
 }
 
-function isBarnesOptions(
-  value: SizeInput | BarnesOptions,
-): value is BarnesOptions {
+function isBarnesOptions(value: SizeInput | BarnesOptions): value is BarnesOptions {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
@@ -171,11 +152,7 @@ function isBarnesOptions(
  * @param numIter Number of convolution passes.
  * @returns Half kernel size (scalar for 1D, vector for 2D/3D).
  */
-export function getHalfKernelSize(
-  sigma: ScalarOrVector,
-  step: ScalarOrVector,
-  numIter: number,
-): number | number[] {
+export function getHalfKernelSize(sigma: ScalarOrVector, step: ScalarOrVector, numIter: number): number | number[] {
   const dim = inferDimFromVectors(sigma, step);
   const sigmaVec = Float64Array.from(toVector(sigma, dim, "sigma"));
   const stepVec = Float64Array.from(toVector(step, dim, "step"));
@@ -191,11 +168,7 @@ export function getHalfKernelSize(
  * @param numIter Number of convolution passes.
  * @returns Half kernel size (scalar for 1D, vector for 2D/3D).
  */
-export function getHalfKernelSizeOpt(
-  sigma: ScalarOrVector,
-  step: ScalarOrVector,
-  numIter: number,
-): number | number[] {
+export function getHalfKernelSizeOpt(sigma: ScalarOrVector, step: ScalarOrVector, numIter: number): number | number[] {
   const dim = inferDimFromVectors(sigma, step);
   const sigmaVec = Float64Array.from(toVector(sigma, dim, "sigma"));
   const stepVec = Float64Array.from(toVector(step, dim, "step"));
@@ -211,11 +184,7 @@ export function getHalfKernelSizeOpt(
  * @param numIter Number of convolution passes.
  * @returns Tail value (scalar for 1D, vector for 2D/3D).
  */
-export function getTailValue(
-  sigma: ScalarOrVector,
-  step: ScalarOrVector,
-  numIter: number,
-): number | number[] {
+export function getTailValue(sigma: ScalarOrVector, step: ScalarOrVector, numIter: number): number | number[] {
   const dim = inferDimFromVectors(sigma, step);
   const sigmaVec = Float64Array.from(toVector(sigma, dim, "sigma"));
   const stepVec = Float64Array.from(toVector(step, dim, "step"));
@@ -231,18 +200,12 @@ export function getTailValue(
  * @param numIter Number of convolution passes.
  * @returns Effective sigma estimate (scalar for 1D, vector for 2D/3D).
  */
-export function getSigmaEffective(
-  sigma: ScalarOrVector,
-  step: ScalarOrVector,
-  numIter: number,
-): number | number[] {
+export function getSigmaEffective(sigma: ScalarOrVector, step: ScalarOrVector, numIter: number): number | number[] {
   const dim = inferDimFromVectors(sigma, step);
   const sigmaVec = Float64Array.from(toVector(sigma, dim, "sigma"));
   const stepVec = Float64Array.from(toVector(step, dim, "step"));
   const half = getHalfKernelSizeVector(sigmaVec, stepVec, numIter);
-  const out = half.map(
-    (h, i) => Math.sqrt((numIter / 3.0) * h * (h + 1.0)) * stepVec[i],
-  );
+  const out = half.map((h, i) => Math.sqrt((numIter / 3.0) * h * (h + 1.0)) * stepVec[i]);
   return dim === 1 ? out[0] : out;
 }
 
@@ -254,9 +217,7 @@ export function getSigmaEffective(
  * @param result Barnes interpolation result.
  * @returns Nested array representation of the interpolated field.
  */
-export function toNestedArray(
-  result: BarnesResult,
-): number[] | number[][] | number[][][] {
+export function toNestedArray(result: BarnesResult): number[] | number[][] | number[][][] {
   const { data, shape, dimension } = result;
 
   if (dimension === 1) {
@@ -312,9 +273,7 @@ export function findGridExtrema2D(
   options: GridExtremaOptions2D = {},
 ): GridExtremaPoint2D[] {
   if (grid.dimension !== 2 || grid.shape.length !== 2) {
-    throw new Error(
-      `findGridExtrema2D expects a 2D BarnesResult, got ${grid.dimension}D with shape ${grid.shape}`,
-    );
+    throw new Error(`findGridExtrema2D expects a 2D BarnesResult, got ${grid.dimension}D with shape ${grid.shape}`);
   }
 
   const [sx, sy] = grid.shape;
@@ -322,16 +281,13 @@ export function findGridExtrema2D(
   const [stepX, stepY] = normalize2DVectorForExtrema(step, "step");
 
   if (!(stepX > 0) || !(stepY > 0)) {
-    throw new Error(
-      `step must be > 0 in both dimensions, got [${stepX}, ${stepY}]`,
-    );
+    throw new Error(`step must be > 0 in both dimensions, got [${stepX}, ${stepY}]`);
   }
 
   const radius = options.radius ?? 1;
   const minSeparation = options.minSeparation ?? 2;
   const minProminence = options.minProminence ?? 0.01;
   const maxCountPerKind = options.maxCountPerKind;
-  
 
   if (!Number.isInteger(radius) || radius < 1) {
     throw new Error(`radius must be an integer >= 1, got ${radius}`);
@@ -342,23 +298,18 @@ export function findGridExtrema2D(
   if (!(minProminence >= 0)) {
     throw new Error(`minProminence must be >= 0, got ${minProminence}`);
   }
-  if (
-    maxCountPerKind !== undefined &&
-    (!Number.isInteger(maxCountPerKind) || maxCountPerKind < 1)
-  ) {
-    throw new Error(
-      `maxCountPerKind must be an integer >= 1 when provided, got ${maxCountPerKind}`,
-    );
+  if (maxCountPerKind !== undefined && (!Number.isInteger(maxCountPerKind) || maxCountPerKind < 1)) {
+    throw new Error(`maxCountPerKind must be an integer >= 1 when provided, got ${maxCountPerKind}`);
   }
 
   const data = grid.data;
   const candidatesMax: GridExtremaPoint2D[] = [];
   const candidatesMin: GridExtremaPoint2D[] = [];
 
-  const iStart =  radius ;
-  const iEnd =  sx - radius ;
-  const jStart = radius ;
-  const jEnd = sy - radius ;
+  const iStart = radius;
+  const iEnd = sx - radius;
+  const jStart = radius;
+  const jEnd = sy - radius;
 
   for (let j = jStart; j < jEnd; j++) {
     const rowOffset = j * sx;
@@ -386,8 +337,8 @@ export function findGridExtrema2D(
           if (ni === i && nj === j) continue;
           const neighbor = data[nRow + ni];
           if (!Number.isFinite(neighbor)) {
-              touchesInvalidNeighbor = true;
-              break;
+            touchesInvalidNeighbor = true;
+            break;
           }
 
           hasNeighbor = true;
@@ -439,16 +390,8 @@ export function findGridExtrema2D(
     }
   }
 
-  const keptMax = suppressExtrema(
-    candidatesMax,
-    minSeparation,
-    maxCountPerKind,
-  );
-  const keptMin = suppressExtrema(
-    candidatesMin,
-    minSeparation,
-    maxCountPerKind,
-  );
+  const keptMax = suppressExtrema(candidatesMax, minSeparation, maxCountPerKind);
+  const keptMin = suppressExtrema(candidatesMin, minSeparation, maxCountPerKind);
   return [...keptMax, ...keptMin];
 }
 
@@ -471,9 +414,7 @@ function suppressExtrema(
   });
 
   if (minSeparation <= 0) {
-    return maxCountPerKind === undefined
-      ? sorted
-      : sorted.slice(0, maxCountPerKind);
+    return maxCountPerKind === undefined ? sorted : sorted.slice(0, maxCountPerKind);
   }
 
   const minSepSq = minSeparation * minSeparation;
@@ -504,10 +445,7 @@ function suppressExtrema(
   return kept;
 }
 
-function normalize2DVectorForExtrema(
-  value: ScalarOrVector,
-  name: string,
-): [number, number] {
+function normalize2DVectorForExtrema(value: ScalarOrVector, name: string): [number, number] {
   if (typeof value === "number") {
     if (!Number.isFinite(value)) {
       throw new Error(`${name} must be finite, got ${value}`);
@@ -517,9 +455,7 @@ function normalize2DVectorForExtrema(
 
   const arr = Array.from(value);
   if (arr.length !== 2) {
-    throw new Error(
-      `${name} must be scalar or length-2 array, got length ${arr.length}`,
-    );
+    throw new Error(`${name} must be scalar or length-2 array, got length ${arr.length}`);
   }
 
   const x = arr[0];
@@ -543,9 +479,7 @@ function normalizeInput(
   const values = Float64Array.from(val);
 
   if (values.length !== sampleCount) {
-    throw new Error(
-      `pts and val arrays have inconsistent lengths: ${sampleCount} vs ${values.length}`,
-    );
+    throw new Error(`pts and val arrays have inconsistent lengths: ${sampleCount} vs ${values.length}`);
   }
 
   const sigmaVec = Float64Array.from(toVector(sigma, dim, "sigma"));
@@ -560,8 +494,7 @@ function normalizeInput(
     if (!(s > 0.0)) throw new Error("step must be > 0 in all dimensions");
   }
   for (const s of sizeVec) {
-    if (!Number.isInteger(s) || s < 2)
-      throw new Error("size values must be integer and >= 2");
+    if (!Number.isInteger(s) || s < 2) throw new Error("size values must be integer and >= 2");
   }
 
   return {
@@ -584,14 +517,9 @@ function normalizeTupleInput(
   size: SizeInput,
 ): NormalizedInput {
   const sampleCount = tupleArray.length;
-  const dimRaw =
-    sampleCount === 0
-      ? inferDimFromVectors(sigma, step)
-      : tupleArray[0].length - 1;
+  const dimRaw = sampleCount === 0 ? inferDimFromVectors(sigma, step) : tupleArray[0].length - 1;
   if (dimRaw < 1 || dimRaw > 3) {
-    throw new Error(
-      `Barnes interpolation supports tuple dimensions 1, 2 or 3, got ${dimRaw}`,
-    );
+    throw new Error(`Barnes interpolation supports tuple dimensions 1, 2 or 3, got ${dimRaw}`);
   }
   const dim = dimRaw as 1 | 2 | 3;
 
@@ -624,8 +552,7 @@ function normalizeTupleInput(
     if (!(s > 0.0)) throw new Error("step must be > 0 in all dimensions");
   }
   for (const s of sizeVec) {
-    if (!Number.isInteger(s) || s < 2)
-      throw new Error("size values must be integer and >= 2");
+    if (!Number.isInteger(s) || s < 2) throw new Error("size values must be integer and >= 2");
   }
 
   return {
@@ -649,9 +576,7 @@ function normalizePoints(pts: PointInput): {
     const rows = pts as ReadonlyArray<ReadonlyArray<number>>;
     const dim = rows[0].length;
     if (dim < 1 || dim > 3) {
-      throw new Error(
-        `Barnes interpolation supports dimensions 1, 2, or 3, got ${dim}`,
-      );
+      throw new Error(`Barnes interpolation supports dimensions 1, 2, or 3, got ${dim}`);
     }
 
     const sampleCount = rows.length;
@@ -677,9 +602,7 @@ function normalizePoints(pts: PointInput): {
   };
 }
 
-function isPointMatrix(
-  value: PointInput,
-): value is ReadonlyArray<ReadonlyArray<number>> {
+function isPointMatrix(value: PointInput): value is ReadonlyArray<ReadonlyArray<number>> {
   return Array.isArray(value) && value.length > 0 && Array.isArray(value[0]);
 }
 
@@ -715,77 +638,46 @@ function inferDimFromVectors(a: ScalarOrVector, b: ScalarOrVector): 1 | 2 | 3 {
   const lb = typeof b === "number" ? 1 : Array.from(b).length;
   const dim = Math.max(la, lb);
   if (dim < 1 || dim > 3) {
-    throw new Error(
-      `Barnes interpolation supports dimensions 1, 2 or 3, got ${dim}`,
-    );
+    throw new Error(`Barnes interpolation supports dimensions 1, 2 or 3, got ${dim}`);
   }
   return dim as 1 | 2 | 3;
 }
 
-function getKernelSize(
-  sigma: Float64Array,
-  step: Float64Array,
-  numIter: number,
-): number[] {
+function getKernelSize(sigma: Float64Array, step: Float64Array, numIter: number): number[] {
   const half = getHalfKernelSizeVector(sigma, step, numIter);
   return half.map((h) => 2 * h + 1);
 }
 
-function getKernelSizeOpt(
-  sigma: Float64Array,
-  step: Float64Array,
-  numIter: number,
-): number[] {
+function getKernelSizeOpt(sigma: Float64Array, step: Float64Array, numIter: number): number[] {
   const half = getHalfKernelSizeOptVector(sigma, step, numIter);
   return half.map((h) => 2 * h + 1);
 }
 
-function getHalfKernelSizeVector(
-  sigma: Float64Array,
-  step: Float64Array,
-  numIter: number,
-): number[] {
-  return Array.from(sigma, (s, i) =>
-    Math.trunc(Math.sqrt(3.0 / numIter) * (s / step[i]) + 0.5),
-  );
+function getHalfKernelSizeVector(sigma: Float64Array, step: Float64Array, numIter: number): number[] {
+  return Array.from(sigma, (s, i) => Math.trunc(Math.sqrt(3.0 / numIter) * (s / step[i]) + 0.5));
 }
 
-function getHalfKernelSizeOptVector(
-  sigma: Float64Array,
-  step: Float64Array,
-  numIter: number,
-): number[] {
+function getHalfKernelSizeOptVector(sigma: Float64Array, step: Float64Array, numIter: number): number[] {
   return Array.from(sigma, (s, i) => {
     const ratio = s / step[i];
-    return Math.trunc(
-      (Math.sqrt(1.0 + (12.0 * ratio * ratio) / numIter) - 1.0) / 2.0,
-    );
+    return Math.trunc((Math.sqrt(1.0 + (12.0 * ratio * ratio) / numIter) - 1.0) / 2.0);
   });
 }
 
-function getTailValueVector(
-  sigma: Float64Array,
-  step: Float64Array,
-  numIter: number,
-): number[] {
+function getTailValueVector(sigma: Float64Array, step: Float64Array, numIter: number): number[] {
   const half = getHalfKernelSizeOptVector(sigma, step, numIter);
   return Array.from(sigma, (s, i) => {
     const h = half[i];
     const kernel = 2.0 * h + 1.0;
     const sigmaRectSq = ((h + 1.0) * h * step[i] * step[i]) / 3.0;
-    return (
-      (0.5 * kernel * ((s * s) / numIter - sigmaRectSq)) /
-      (((h + 1.0) * step[i]) ** 2 - (s * s) / numIter)
-    );
+    return (0.5 * kernel * ((s * s) / numIter - sigmaRectSq)) / (((h + 1.0) * step[i]) ** 2 - (s * s) / numIter);
   });
 }
 
 function assertKernelFits(kernel: number[], size: number[]): void {
   for (let i = 0; i < kernel.length; i++) {
     if (kernel[i] >= size[i]) {
-      throw new Error(
-        `resulting rectangular kernel size should be smaller than grid: ${kernel} vs ${size}`,
-      );
+      throw new Error(`resulting rectangular kernel size should be smaller than grid: ${kernel} vs ${size}`);
     }
   }
 }
@@ -822,38 +714,15 @@ function interpolateFast(
   const vg = new Float64Array(total);
   const wg = new Float64Array(total);
 
-  injectData(
-    vg,
-    wg,
-    input.points,
-    centered,
-    input.sampleCount,
-    input.dim,
-    input.x0,
-    input.step,
-    shape,
-  );
+  injectData(vg, wg, input.points, centered, input.sampleCount, input.dim, input.x0, input.step, shape);
 
   const kernel = optimized
     ? getKernelSizeOpt(input.sigma, input.step, numIter)
     : getKernelSize(input.sigma, input.step, numIter);
 
-  const tail = optimized
-    ? getTailValueVector(input.sigma, input.step, numIter)
-    : undefined;
+  const tail = optimized ? getTailValueVector(input.sigma, input.step, numIter) : undefined;
 
-  convolve(
-    vg,
-    wg,
-    input.dim,
-    shape,
-    kernel,
-    numIter,
-    input.sigma,
-    input.step,
-    maxDistWeight,
-    tail,
-  );
+  convolve(vg, wg, input.dim, shape, kernel, numIter, input.sigma, input.step, maxDistWeight, tail);
 
   const result = new Float32Array(total);
   for (let i = 0; i < total; i++) {
@@ -948,14 +817,7 @@ function injectData(
     const yc = (py - x0[1]) / step[1];
     const zc = (pz - x0[2]) / step[2];
 
-    if (
-      xc < 0.0 ||
-      yc < 0.0 ||
-      zc < 0.0 ||
-      xc >= sx - 1 ||
-      yc >= sy - 1 ||
-      zc >= sz - 1
-    ) {
+    if (xc < 0.0 || yc < 0.0 || zc < 0.0 || xc >= sx - 1 || yc >= sy - 1 || zc >= sz - 1) {
       continue;
     }
 
@@ -1002,17 +864,7 @@ function convolve(
     const convW = convolveLine(wg, sx, kernelSize[0], numIter, tailValue?.[0]);
     vg.set(convV);
     wg.set(convW);
-    applyWeightThreshold(
-      wg,
-      computeScaleFactor(
-        kernelSize,
-        numIter,
-        sigma,
-        step,
-        maxDistWeight,
-        tailValue,
-      ),
-    );
+    applyWeightThreshold(wg, computeScaleFactor(kernelSize, numIter, sigma, step, maxDistWeight, tailValue));
     return;
   }
 
@@ -1023,23 +875,11 @@ function convolve(
     for (let y = 0; y < sy; y++) {
       const rowOffset = y * sx;
       vg.set(
-        convolveLine(
-          vg.subarray(rowOffset, rowOffset + sx),
-          sx,
-          kernelSize[0],
-          numIter,
-          tailValue?.[0],
-        ),
+        convolveLine(vg.subarray(rowOffset, rowOffset + sx), sx, kernelSize[0], numIter, tailValue?.[0]),
         rowOffset,
       );
       wg.set(
-        convolveLine(
-          wg.subarray(rowOffset, rowOffset + sx),
-          sx,
-          kernelSize[0],
-          numIter,
-          tailValue?.[0],
-        ),
+        convolveLine(wg.subarray(rowOffset, rowOffset + sx), sx, kernelSize[0], numIter, tailValue?.[0]),
         rowOffset,
       );
     }
@@ -1053,20 +893,8 @@ function convolve(
         colW[y] = wg[idx];
       }
 
-      const convV = convolveLine(
-        colV,
-        sy,
-        kernelSize[1],
-        numIter,
-        tailValue?.[1],
-      );
-      const convW = convolveLine(
-        colW,
-        sy,
-        kernelSize[1],
-        numIter,
-        tailValue?.[1],
-      );
+      const convV = convolveLine(colV, sy, kernelSize[1], numIter, tailValue?.[1]);
+      const convW = convolveLine(colW, sy, kernelSize[1], numIter, tailValue?.[1]);
       for (let y = 0; y < sy; y++) {
         const idx = y * sx + x;
         vg[idx] = convV[y];
@@ -1074,17 +902,7 @@ function convolve(
       }
     }
 
-    applyWeightThreshold(
-      wg,
-      computeScaleFactor(
-        kernelSize,
-        numIter,
-        sigma,
-        step,
-        maxDistWeight,
-        tailValue,
-      ),
-    );
+    applyWeightThreshold(wg, computeScaleFactor(kernelSize, numIter, sigma, step, maxDistWeight, tailValue));
     return;
   }
 
@@ -1096,23 +914,11 @@ function convolve(
     for (let y = 0; y < sy; y++) {
       const rowOffset = (z * sy + y) * sx;
       vg.set(
-        convolveLine(
-          vg.subarray(rowOffset, rowOffset + sx),
-          sx,
-          kernelSize[0],
-          numIter,
-          tailValue?.[0],
-        ),
+        convolveLine(vg.subarray(rowOffset, rowOffset + sx), sx, kernelSize[0], numIter, tailValue?.[0]),
         rowOffset,
       );
       wg.set(
-        convolveLine(
-          wg.subarray(rowOffset, rowOffset + sx),
-          sx,
-          kernelSize[0],
-          numIter,
-          tailValue?.[0],
-        ),
+        convolveLine(wg.subarray(rowOffset, rowOffset + sx), sx, kernelSize[0], numIter, tailValue?.[0]),
         rowOffset,
       );
     }
@@ -1127,20 +933,8 @@ function convolve(
         lineYV[y] = vg[idx];
         lineYW[y] = wg[idx];
       }
-      const convV = convolveLine(
-        lineYV,
-        sy,
-        kernelSize[1],
-        numIter,
-        tailValue?.[1],
-      );
-      const convW = convolveLine(
-        lineYW,
-        sy,
-        kernelSize[1],
-        numIter,
-        tailValue?.[1],
-      );
+      const convV = convolveLine(lineYV, sy, kernelSize[1], numIter, tailValue?.[1]);
+      const convW = convolveLine(lineYW, sy, kernelSize[1], numIter, tailValue?.[1]);
       for (let y = 0; y < sy; y++) {
         const idx = (z * sy + y) * sx + x;
         vg[idx] = convV[y];
@@ -1158,20 +952,8 @@ function convolve(
         lineZV[z] = vg[idx];
         lineZW[z] = wg[idx];
       }
-      const convV = convolveLine(
-        lineZV,
-        sz,
-        kernelSize[2],
-        numIter,
-        tailValue?.[2],
-      );
-      const convW = convolveLine(
-        lineZW,
-        sz,
-        kernelSize[2],
-        numIter,
-        tailValue?.[2],
-      );
+      const convV = convolveLine(lineZV, sz, kernelSize[2], numIter, tailValue?.[2]);
+      const convW = convolveLine(lineZW, sz, kernelSize[2], numIter, tailValue?.[2]);
       for (let z = 0; z < sz; z++) {
         const idx = (z * sy + y) * sx + x;
         vg[idx] = convV[z];
@@ -1180,17 +962,7 @@ function convolve(
     }
   }
 
-  applyWeightThreshold(
-    wg,
-    computeScaleFactor(
-      kernelSize,
-      numIter,
-      sigma,
-      step,
-      maxDistWeight,
-      tailValue,
-    ),
-  );
+  applyWeightThreshold(wg, computeScaleFactor(kernelSize, numIter, sigma, step, maxDistWeight, tailValue));
 }
 
 function convolveLine(
@@ -1342,8 +1114,7 @@ function interpolateNaive(input: NormalizedInput): BarnesResult {
         weightTotal += w;
       }
 
-      out[x] =
-        weightTotal > 0.0 ? weightedSum / weightTotal + offset : Number.NaN;
+      out[x] = weightTotal > 0.0 ? weightedSum / weightTotal + offset : Number.NaN;
     }
 
     return { data: out, shape: size, dimension: dim };
@@ -1371,8 +1142,7 @@ function interpolateNaive(input: NormalizedInput): BarnesResult {
           weightTotal += w;
         }
 
-        out[y * sx + x] =
-          weightTotal > 0.0 ? weightedSum / weightTotal + offset : Number.NaN;
+        out[y * sx + x] = weightTotal > 0.0 ? weightedSum / weightTotal + offset : Number.NaN;
       }
     }
 
@@ -1400,15 +1170,12 @@ function interpolateNaive(input: NormalizedInput): BarnesResult {
           const dx = points[base] - xc;
           const dy = points[base + 1] - yc;
           const dz = points[base + 2] - zc;
-          const w = Math.exp(
-            -(dx * dx) / scaleX - (dy * dy) / scaleY - (dz * dz) / scaleZ,
-          );
+          const w = Math.exp(-(dx * dx) / scaleX - (dy * dy) / scaleY - (dz * dz) / scaleZ);
           weightedSum += w * centered[k];
           weightTotal += w;
         }
 
-        out[(z * sy + y) * sx + x] =
-          weightTotal > 0.0 ? weightedSum / weightTotal + offset : Number.NaN;
+        out[(z * sy + y) * sx + x] = weightTotal > 0.0 ? weightedSum / weightTotal + offset : Number.NaN;
       }
     }
   }
@@ -1417,33 +1184,17 @@ function interpolateNaive(input: NormalizedInput): BarnesResult {
 }
 
 function isTuple1DWithValue(input: unknown): input is Tuple1DWithValue {
-  return (
-    Array.isArray(input) &&
-    input.length === 2 &&
-    input.every((x) => typeof x === "number" && Number.isFinite(x))
-  );
+  return Array.isArray(input) && input.length === 2 && input.every((x) => typeof x === "number" && Number.isFinite(x));
 }
 
 function isTuple2DWithValue(input: unknown): input is Tuple2DWithValue {
-  return (
-    Array.isArray(input) &&
-    input.length === 3 &&
-    input.every((x) => typeof x === "number" && Number.isFinite(x))
-  );
+  return Array.isArray(input) && input.length === 3 && input.every((x) => typeof x === "number" && Number.isFinite(x));
 }
 
 function isTuple3DWithValue(input: unknown): input is Tuple3DWithValue {
-  return (
-    Array.isArray(input) &&
-    input.length === 4 &&
-    input.every((x) => typeof x === "number" && Number.isFinite(x))
-  );
+  return Array.isArray(input) && input.length === 4 && input.every((x) => typeof x === "number" && Number.isFinite(x));
 }
 
 function isTupleWithValue(input: unknown): input is TupleWithValue {
-  return (
-    isTuple1DWithValue(input) ||
-    isTuple2DWithValue(input) ||
-    isTuple3DWithValue(input)
-  );
+  return isTuple1DWithValue(input) || isTuple2DWithValue(input) || isTuple3DWithValue(input);
 }

@@ -54,10 +54,7 @@ export function get2DTupleDataProfile(tupleData: Tuple2DWithValue[]) {
   return { bounds, maxValue, minValue };
 }
 
-export function resolveThresholds(
-  grid: BarnesResult,
-  options: GridContourOptions,
-): number[] {
+export function resolveThresholds(grid: BarnesResult, options: GridContourOptions): number[] {
   const { spacing, base } = options;
   if (!(spacing > 0)) {
     throw new Error(`spacing must be > 0, got ${spacing}`);
@@ -67,11 +64,7 @@ export function resolveThresholds(
   return buildSpacedThresholds(grid.data, spacing, baseValue);
 }
 
-export function buildSpacedThresholds(
-  data: Float32Array,
-  spacing: number,
-  base: number,
-): number[] {
+export function buildSpacedThresholds(data: Float32Array, spacing: number, base: number): number[] {
   let min = Number.POSITIVE_INFINITY;
   let max = Number.NEGATIVE_INFINITY;
 
@@ -101,9 +94,7 @@ export function buildSpacedThresholds(
   return levels;
 }
 
-export function normalizeResolution(
-  resolution: number | readonly [number, number] | undefined,
-): [number, number] {
+export function normalizeResolution(resolution: number | readonly [number, number] | undefined): [number, number] {
   if (resolution === undefined) {
     return [128, 128];
   }
@@ -119,9 +110,7 @@ export function normalizeResolution(
   const rx = Math.trunc(resolution[0]);
   const ry = Math.trunc(resolution[1]);
   if (rx < 2 || ry < 2) {
-    throw new Error(
-      `resolution values must be >= 2, got [${resolution[0]}, ${resolution[1]}]`,
-    );
+    throw new Error(`resolution values must be >= 2, got [${resolution[0]}, ${resolution[1]}]`);
   }
   return [rx, ry];
 }
@@ -162,12 +151,7 @@ export function getBarnesParams(
 
       const bounds = tupleData.reduce<[number, number, number, number]>(
         (acc, d) => {
-          return [
-            Math.min(acc[0], d[0]),
-            Math.min(acc[1], d[1]),
-            Math.max(acc[2], d[0]),
-            Math.max(acc[3], d[1]),
-          ];
+          return [Math.min(acc[0], d[0]), Math.min(acc[1], d[1]), Math.max(acc[2], d[0]), Math.max(acc[3], d[1])];
         },
         [Infinity, Infinity, -Infinity, -Infinity],
       );
@@ -178,10 +162,7 @@ export function getBarnesParams(
 
       const spanX = bounds[2] + padding - x0[0];
       const spanY = bounds[3] + padding - x0[1];
-      const step: [number, number] = [
-        spanX / Math.max(1, size[0] - 1),
-        spanY / Math.max(1, size[1] - 1),
-      ];
+      const step: [number, number] = [spanX / Math.max(1, size[0] - 1), spanY / Math.max(1, size[1] - 1)];
 
       return { x0, step, size };
     }
@@ -198,8 +179,7 @@ export function getBarnesParams(
         throw new Error("Cannot derive projected bounds from empty tupleData");
       }
 
-      const padding =
-        options.sphericalOptions?.lambertPadding ?? options.padding ?? 0.05;
+      const padding = options.sphericalOptions?.lambertPadding ?? options.padding ?? 0.05;
       if (!(padding >= 0)) {
         throw new Error(`lambertPadding/padding must be >= 0, got ${padding}`);
       }
@@ -212,10 +192,7 @@ export function getBarnesParams(
       const x0: [number, number] = [bounds.minX - padX, bounds.minY - padY];
       const spanX = bounds.maxX + padX - x0[0];
       const spanY = bounds.maxY + padY - x0[1];
-      const step: [number, number] = [
-        spanX / Math.max(1, size[0] - 1),
-        spanY / Math.max(1, size[1] - 1),
-      ];
+      const step: [number, number] = [spanX / Math.max(1, size[0] - 1), spanY / Math.max(1, size[1] - 1)];
 
       return {
         x0,

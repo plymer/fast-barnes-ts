@@ -1,29 +1,35 @@
 {
   "name": "@plymer/fast-barnes-ts",
-  "private": false,
   "version": "0.4.0-rc0",
+  "private": false,
   "description": "Fast Barnes interpolation for irregularly spaced 1D, 2D and 3D sample data in TypeScript.",
   "keywords": [
     "barnes",
-    "samples",
-    "interpolation",
-    "gridding",
-    "geojson",
     "contour",
+    "gaussian",
+    "geojson",
+    "gridding",
+    "interpolation",
     "isobands",
     "isolines",
-    "gaussian",
     "meteorology",
+    "samples",
     "spatial"
   ],
   "homepage": "https://github.com/plymer/fast-barnes-ts",
+  "license": "BSD-3-Clause",
+  "author": "Bruno Zuercher, Ryan Pimiskern",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/plymer/fast-barnes-ts.git"
   },
-  "license": "BSD-3-Clause",
-  "author": "Bruno Zuercher, Ryan Pimiskern",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "type": "module",
+  "sideEffects": false,
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -34,17 +40,8 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
   "publishConfig": {
     "access": "public"
-  },
-  "sideEffects": false,
-  "engines": {
-    "node": ">=18"
   },
   "scripts": {
     "build": "tsup",
@@ -57,21 +54,29 @@
     "example:local:interpolate": "npm run build && node examples/local/interpolate-local.mjs",
     "example:local:maplibre": "npm run build && node examples/serve.mjs",
     "example:maplibre": "npm run example:geojson && node examples/serve.mjs",
-    "lint": "tsc --noEmit",
+    "lint": "oxlint --fix",
+    "format": "oxfmt",
+    "check": "tsc --noEmit && pnpm format && pnpm lint",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
     "d3-contour": "^4.0.2"
   },
-  "peerDependencies": {
-    "@types/geojson": ">=7946.0.16"
-  },
   "devDependencies": {
     "@types/d3-contour": "^3.0.6",
     "@types/geojson": "^7946.0.16",
+    "oxfmt": "^0.57.0",
+    "oxlint": "^1.72.0",
     "tsup": "^8.5.1",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.2"
-  }
+  },
+  "peerDependencies": {
+    "@types/geojson": ">=7946.0.16"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "pnpm@11.10.0"
 }

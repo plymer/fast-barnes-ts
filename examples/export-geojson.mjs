@@ -2,11 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import {
-  barnes,
-  gridToIsobandsGeoJSON,
-  gridToIsolinesGeoJSON,
-} from "../dist/index.js";
+import { barnes, gridToIsobandsGeoJSON, gridToIsolinesGeoJSON } from "../dist/index.js";
 
 function lcg(seed) {
   let state = seed >>> 0;
@@ -25,11 +21,7 @@ function makeSyntheticData(count, x0, y0, width, height, seed = 123) {
     const x = x0 + rand() * width;
     const y = y0 + rand() * height;
 
-    const v =
-      1.8 * Math.sin(0.6 * x) +
-      1.2 * Math.cos(0.5 * y) +
-      0.5 * Math.sin(0.18 * x * y) +
-      (rand() - 0.5) * 0.1;
+    const v = 1.8 * Math.sin(0.6 * x) + 1.2 * Math.cos(0.5 * y) + 0.5 * Math.sin(0.18 * x * y) + (rand() - 0.5) * 0.1;
 
     points.push([x, y]);
     values.push(v);

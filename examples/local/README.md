@@ -26,8 +26,8 @@ Put your private source file at:
 
 This path is gitignored by default.
 
-If that file is missing, the CLI script falls back to
-`examples/local/output/grid.geojson` and uses `value` as the default field.
+If that file is missing, the CLI script falls back to `examples/local/output/grid.geojson` and uses `value` as the
+default field.
 
 ## Generate interpolation output
 

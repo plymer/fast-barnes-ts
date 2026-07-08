@@ -4,10 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>fast-barnes-ts Local Viewer</title>
-    <link
-      href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css"
-      rel="stylesheet"
-    />
+    <link href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" rel="stylesheet" />
     <style>
       html,
       body,
@@ -71,11 +68,7 @@
       <div class="controls">
         <label class="full"
           >Input GeoJSON
-          <input
-            id="fileInput"
-            type="file"
-            accept=".json,.geojson,application/geo+json,application/json"
-          />
+          <input id="fileInput" type="file" accept=".json,.geojson,application/geo+json,application/json" />
         </label>
         <label
           >Value field
@@ -106,13 +99,7 @@
         </label>
         <label
           >Sigma (optional)
-          <input
-            id="sigmaInput"
-            type="number"
-            step="any"
-            min="0"
-            placeholder="auto"
-          />
+          <input id="sigmaInput" type="number" step="any" min="0" placeholder="auto" />
         </label>
         <label style="align-items: center; grid-template-columns: auto 1fr"
           ><input id="debugInput" type="checkbox" /> Debug logs</label
@@ -177,8 +164,7 @@
           for (const item of coords) visit(item);
         }
 
-        for (const feature of fc.features || [])
-          visit(feature?.geometry?.coordinates);
+        for (const feature of fc.features || []) visit(feature?.geometry?.coordinates);
         if (!Number.isFinite(minX)) return null;
         return [
           [minX, minY],
@@ -243,8 +229,7 @@
         const raw = String(inputEl.value ?? "").trim();
         if (!raw) return fallback;
         const n = Number(raw);
-        if (!Number.isFinite(n))
-          throw new Error(`${name} must be a finite number`);
+        if (!Number.isFinite(n)) throw new Error(`${name} must be a finite number`);
         return n;
       }
 
@@ -263,8 +248,7 @@
         const base = parseNumber(baseInput, "Base", 0);
         const resX = Math.trunc(parseNumber(resXInput, "Resolution X"));
         const resY = Math.trunc(parseNumber(resYInput, "Resolution Y"));
-        if (resX < 2 || resY < 2)
-          throw new Error("Resolution values must be >= 2");
+        if (resX < 2 || resY < 2) throw new Error("Resolution values must be >= 2");
         if (!(spacing > 0)) throw new Error("Spacing must be > 0");
 
         const sigma = parseNumber(sigmaInput, "Sigma", undefined);
@@ -294,12 +278,7 @@
         try {
           const { field, mode, options } = readControls();
           const start = performance.now();
-          const result = geoJSONtoGeoJSON(
-            loadedFeatureCollection,
-            field,
-            normalizeMode(mode),
-            options,
-          );
+          const result = geoJSONtoGeoJSON(loadedFeatureCollection, field, normalizeMode(mode), options);
           renderResult(result, mode);
           const elapsedMs = (performance.now() - start).toFixed(1);
           statusEl.textContent = `Interpolated ${result.features.length} features in ${elapsedMs} ms (${mode}).`;
@@ -320,11 +299,7 @@
       async function loadSelectedFile(file) {
         const text = await file.text();
         const parsed = JSON.parse(text);
-        if (
-          !parsed ||
-          parsed.type !== "FeatureCollection" ||
-          !Array.isArray(parsed.features)
-        ) {
+        if (!parsed || parsed.type !== "FeatureCollection" || !Array.isArray(parsed.features)) {
           throw new Error("Input file must be a GeoJSON FeatureCollection");
         }
 
@@ -350,15 +325,7 @@
 
       runButton.addEventListener("click", runInterpolation);
 
-      [
-        fieldInput,
-        modeInput,
-        spacingInput,
-        baseInput,
-        resXInput,
-        resYInput,
-        sigmaInput,
-      ].forEach((el) => {
+      [fieldInput, modeInput, spacingInput, baseInput, resXInput, resYInput, sigmaInput].forEach((el) => {
         el.addEventListener("input", scheduleRun);
         el.addEventListener("change", scheduleRun);
       });

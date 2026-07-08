@@ -21,12 +21,7 @@ const debug = process.env.DEBUG === "1" || process.env.DEBUG === "true";
 const outputDir = path.join(__dirname, "output");
 
 function isMode(value) {
-  return (
-    value === "isoline" ||
-    value === "isolines" ||
-    value === "isoband" ||
-    value === "isobands"
-  );
+  return value === "isoline" || value === "isolines" || value === "isoband" || value === "isobands";
 }
 
 function normalizeMode(value) {
@@ -37,9 +32,7 @@ function normalizeMode(value) {
 
 async function main() {
   if (!isMode(mode)) {
-    throw new Error(
-      `Invalid MODE '${mode}'. Use isoline|isolines|isoband|isobands.`,
-    );
+    throw new Error(`Invalid MODE '${mode}'. Use isoline|isolines|isoband|isobands.`);
   }
 
   if (!(spacing > 0)) {
@@ -57,42 +50,29 @@ async function main() {
 
     raw = await fs.readFile(fallbackInputPath, "utf8");
     selectedInputPath = fallbackInputPath;
-    console.log(
-      `- default input missing; using bundled sample: ${fallbackInputPath}`,
-    );
+    console.log(`- default input missing; using bundled sample: ${fallbackInputPath}`);
   }
 
-  const selectedValueField =
-    selectedInputPath === fallbackInputPath && !process.env.VALUE_FIELD
-      ? "value"
-      : valueField;
+  const selectedValueField = selectedInputPath === fallbackInputPath && !process.env.VALUE_FIELD ? "value" : valueField;
 
   const featureCollection = JSON.parse(raw);
   console.log(
     `- input features: ${Array.isArray(featureCollection?.features) ? featureCollection.features.length : 0}`,
   );
 
-  const result = geoJSONtoGeoJSON(
-    featureCollection,
-    selectedValueField,
-    normalizeMode(mode),
-    {
-      debug,
-      resolution: [resolutionX, resolutionY],
-      contourOptions: {
-        spacing,
-        base,
-        smooth: true,
-      },
+  const result = geoJSONtoGeoJSON(featureCollection, selectedValueField, normalizeMode(mode), {
+    debug,
+    resolution: [resolutionX, resolutionY],
+    contourOptions: {
+      spacing,
+      base,
+      smooth: true,
     },
-  );
+  });
 
   await fs.mkdir(outputDir, { recursive: true });
 
-  const fileName =
-    mode.startsWith("iso") && mode.includes("line")
-      ? "isolines.geojson"
-      : "isobands.geojson";
+  const fileName = mode.startsWith("iso") && mode.includes("line") ? "isolines.geojson" : "isobands.geojson";
   const outputPath = path.join(outputDir, fileName);
 
   await fs.writeFile(outputPath, JSON.stringify(result, null, 2), "utf8");

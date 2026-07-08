@@ -1,13 +1,5 @@
 import { contours } from "d3-contour";
-import type {
-  Feature,
-  FeatureCollection,
-  GeoJsonProperties,
-  LineString,
-  MultiPolygon,
-  Point,
-  Position,
-} from "geojson";
+import type { Feature, FeatureCollection, GeoJsonProperties, LineString, MultiPolygon, Point, Position } from "geojson";
 import type {
   InterpolateGeoJSONOptions,
   GeoJSONInterpolationMode,
@@ -34,9 +26,7 @@ export interface ContourProperties {
   value: number;
 }
 
-export type InterpolatedContourOrExtremaProperties =
-  | ContourProperties
-  | GridExtremaGeoJSONProperties;
+export type InterpolatedContourOrExtremaProperties = ContourProperties | GridExtremaGeoJSONProperties;
 
 type ExtremaEnabledOptions = InterpolateGeoJSONOptions & {
   extrema: true | GridExtremaOptions2D;
@@ -72,10 +62,7 @@ export function geoJSONtoGeoJSON<P extends GeoJsonProperties, K extends string>(
   valueProperty: K & keyof NonNullable<P>,
   mode: "isolines",
   options: ExtremaEnabledOptions,
-): FeatureCollection<
-  LineString | Point,
-  InterpolatedContourOrExtremaProperties
->;
+): FeatureCollection<LineString | Point, InterpolatedContourOrExtremaProperties>;
 
 export function geoJSONtoGeoJSON<P extends GeoJsonProperties, K extends string>(
   featureCollection: FeatureCollection<Point, P>,
@@ -89,10 +76,7 @@ export function geoJSONtoGeoJSON<P extends GeoJsonProperties, K extends string>(
   valueProperty: K & keyof NonNullable<P>,
   mode: "isobands",
   options: ExtremaEnabledOptions,
-): FeatureCollection<
-  MultiPolygon | Point,
-  InterpolatedContourOrExtremaProperties
->;
+): FeatureCollection<MultiPolygon | Point, InterpolatedContourOrExtremaProperties>;
 
 export function geoJSONtoGeoJSON<P extends GeoJsonProperties, K extends string>(
   featureCollection: FeatureCollection<Point, P>,
@@ -100,14 +84,8 @@ export function geoJSONtoGeoJSON<P extends GeoJsonProperties, K extends string>(
   mode: GeoJSONInterpolationMode,
   options: InterpolateGeoJSONOptions,
 ):
-  | FeatureCollection<
-      MultiPolygon | Point,
-      InterpolatedContourOrExtremaProperties
-    >
-  | FeatureCollection<
-      LineString | Point,
-      InterpolatedContourOrExtremaProperties
-    > {
+  | FeatureCollection<MultiPolygon | Point, InterpolatedContourOrExtremaProperties>
+  | FeatureCollection<LineString | Point, InterpolatedContourOrExtremaProperties> {
   const tupleArray = samplesFromGeoJSON(featureCollection, valueProperty);
   return tupleArrayToGeoJSON(tupleArray, mode, options);
 }
@@ -121,10 +99,7 @@ export function tupleArrayToGeoJSON(
   tupleArray: Tuple2DWithValue[],
   mode: "isobands",
   options: ExtremaEnabledOptions,
-): FeatureCollection<
-  MultiPolygon | Point,
-  InterpolatedContourOrExtremaProperties
->;
+): FeatureCollection<MultiPolygon | Point, InterpolatedContourOrExtremaProperties>;
 export function tupleArrayToGeoJSON(
   tupleArray: Tuple2DWithValue[],
   mode: "isolines",
@@ -134,63 +109,33 @@ export function tupleArrayToGeoJSON(
   tupleArray: Tuple2DWithValue[],
   mode: "isolines",
   options: ExtremaEnabledOptions,
-): FeatureCollection<
-  LineString | Point,
-  InterpolatedContourOrExtremaProperties
->;
+): FeatureCollection<LineString | Point, InterpolatedContourOrExtremaProperties>;
 export function tupleArrayToGeoJSON(
   tupleArray: Tuple2DWithValue[],
   mode: GeoJSONInterpolationMode,
   options: InterpolateGeoJSONOptions,
 ):
-  | FeatureCollection<
-      MultiPolygon | Point,
-      InterpolatedContourOrExtremaProperties
-    >
-  | FeatureCollection<
-      LineString | Point,
-      InterpolatedContourOrExtremaProperties
-    >;
+  | FeatureCollection<MultiPolygon | Point, InterpolatedContourOrExtremaProperties>
+  | FeatureCollection<LineString | Point, InterpolatedContourOrExtremaProperties>;
 export function tupleArrayToGeoJSON(
   tupleArray: Tuple2DWithValue[],
   mode: GeoJSONInterpolationMode,
   options: InterpolateGeoJSONOptions,
 ):
-  | FeatureCollection<
-      MultiPolygon | Point,
-      InterpolatedContourOrExtremaProperties
-    >
-  | FeatureCollection<
-      LineString | Point,
-      InterpolatedContourOrExtremaProperties
-    > {
-  const hasAnyManualGridParam =
-    options.x0 !== undefined ||
-    options.step !== undefined ||
-    options.size !== undefined;
-  const hasAllManualGridParams =
-    options.x0 !== undefined &&
-    options.step !== undefined &&
-    options.size !== undefined;
+  | FeatureCollection<MultiPolygon | Point, InterpolatedContourOrExtremaProperties>
+  | FeatureCollection<LineString | Point, InterpolatedContourOrExtremaProperties> {
+  const hasAnyManualGridParam = options.x0 !== undefined || options.step !== undefined || options.size !== undefined;
+  const hasAllManualGridParams = options.x0 !== undefined && options.step !== undefined && options.size !== undefined;
 
   if (hasAnyManualGridParam && !hasAllManualGridParams) {
-    throw new Error(
-      "When specifying manual grid parameters, provide x0, step, and size together",
-    );
+    throw new Error("When specifying manual grid parameters, provide x0, step, and size together");
   }
 
   const coordinateMode = options.coordinateMode ?? "spherical";
-  const useSpherical =
-    coordinateMode === "spherical" && !hasAllManualGridParams;
+  const useSpherical = coordinateMode === "spherical" && !hasAllManualGridParams;
 
   if (useSpherical) return handleSphericalMode(tupleArray, mode, options);
-  else
-    return handleEuclideanMode(
-      tupleArray,
-      mode,
-      options,
-      hasAllManualGridParams,
-    );
+  else return handleEuclideanMode(tupleArray, mode, options, hasAllManualGridParams);
 }
 
 export function handleEuclideanMode(
@@ -199,14 +144,8 @@ export function handleEuclideanMode(
   options: InterpolateGeoJSONOptions,
   hasAllManualGridParams: boolean,
 ):
-  | FeatureCollection<
-      LineString | Point,
-      InterpolatedContourOrExtremaProperties
-    >
-  | FeatureCollection<
-      MultiPolygon | Point,
-      InterpolatedContourOrExtremaProperties
-    > {
+  | FeatureCollection<LineString | Point, InterpolatedContourOrExtremaProperties>
+  | FeatureCollection<MultiPolygon | Point, InterpolatedContourOrExtremaProperties> {
   const { points, values } = splitTuple2DArray(tupleArray);
 
   let x0: [number, number];
@@ -254,32 +193,14 @@ export function handleEuclideanMode(
 
   const sigma = options.sigma ?? Math.max(step[0], step[1]) * 2.0;
 
-  const grid = barnes(
-    points,
-    values,
-    sigma,
-    x0,
-    step,
-    size,
-    options.barnesOptions ?? {},
-  );
+  const grid = barnes(points, values, sigma, x0, step, size, options.barnesOptions ?? {});
 
   if (mode === "isolines") {
-    const linesOut = gridToIsolinesGeoJSON(
-      grid,
-      x0,
-      step,
-      options.contourOptions,
-    );
+    const linesOut = gridToIsolinesGeoJSON(grid, x0, step, options.contourOptions);
     return appendExtremaFeatures(linesOut, grid, x0, step, options.extrema);
   }
 
-  const bandsOut = gridToIsobandsGeoJSON(
-    grid,
-    x0,
-    step,
-    options.contourOptions,
-  );
+  const bandsOut = gridToIsobandsGeoJSON(grid, x0, step, options.contourOptions);
   return appendExtremaFeatures(bandsOut, grid, x0, step, options.extrema);
 }
 
@@ -288,14 +209,8 @@ export function handleSphericalMode(
   mode: GeoJSONInterpolationMode,
   options: InterpolateGeoJSONOptions,
 ):
-  | FeatureCollection<
-      LineString | Point,
-      InterpolatedContourOrExtremaProperties
-    >
-  | FeatureCollection<
-      MultiPolygon | Point,
-      InterpolatedContourOrExtremaProperties
-    > {
+  | FeatureCollection<LineString | Point, InterpolatedContourOrExtremaProperties>
+  | FeatureCollection<MultiPolygon | Point, InterpolatedContourOrExtremaProperties> {
   if (tupleArray.length === 0) {
     return { type: "FeatureCollection", features: [] };
   }
@@ -329,8 +244,7 @@ export function handleSphericalMode(
 
   const mappedPoints = points.map((p) => lambertToMap(projection, p[0], p[1]));
 
-  const padding =
-    options.sphericalOptions?.lambertPadding ?? options.padding ?? 0.05;
+  const padding = options.sphericalOptions?.lambertPadding ?? options.padding ?? 0.05;
   if (!(padding >= 0)) {
     throw new Error(`lambertPadding/padding must be >= 0, got ${padding}`);
   }
@@ -345,61 +259,29 @@ export function handleSphericalMode(
   const padX = extentX > 0 ? extentX * padding : 1;
   const padY = extentY > 0 ? extentY * padding : 1;
 
-  const x0Lam: [number, number] = [
-    lambertBounds.minX - padX,
-    lambertBounds.minY - padY,
-  ];
+  const x0Lam: [number, number] = [lambertBounds.minX - padX, lambertBounds.minY - padY];
   const size: [number, number] = [rx, ry];
   const spanX = lambertBounds.maxX + padX - x0Lam[0];
   const spanY = lambertBounds.maxY + padY - x0Lam[1];
-  const stepLam: [number, number] = [
-    spanX / Math.max(1, size[0] - 1),
-    spanY / Math.max(1, size[1] - 1),
-  ];
+  const stepLam: [number, number] = [spanX / Math.max(1, size[0] - 1), spanY / Math.max(1, size[1] - 1)];
 
   const sigma = options.sigma ?? Math.max(stepLam[0], stepLam[1]) * 2.0;
 
-  const grid = barnes(
-    mappedPoints,
-    values,
-    sigma,
-    x0Lam,
-    stepLam,
-    size,
-    options.barnesOptions ?? {},
-  );
+  const grid = barnes(mappedPoints, values, sigma, x0Lam, stepLam, size, options.barnesOptions ?? {});
 
   if (mode === "isolines") {
-    const linesLambert = gridToIsolinesGeoJSON(
-      grid,
-      x0Lam,
-      stepLam,
-      options.contourOptions,
-    );
+    const linesLambert = gridToIsolinesGeoJSON(grid, x0Lam, stepLam, options.contourOptions);
     const linesLonLat = transformIsolinesFromLambert(linesLambert, projection);
     if (!options.extrema) return linesLonLat;
 
     const extremaLambert = gridExtremaToGeoJSON(
-      findGridExtrema2D(
-        grid,
-        x0Lam,
-        stepLam,
-        toExtremaOptions(options.extrema),
-      ),
+      findGridExtrema2D(grid, x0Lam, stepLam, toExtremaOptions(options.extrema)),
     );
-    const extremaLonLat = transformExtremaFromLambert(
-      extremaLambert,
-      projection,
-    );
+    const extremaLonLat = transformExtremaFromLambert(extremaLambert, projection);
     return mergeContourWithExtrema(linesLonLat, extremaLonLat);
   }
 
-  const bandsLambert = gridToIsobandsGeoJSON(
-    grid,
-    x0Lam,
-    stepLam,
-    options.contourOptions,
-  );
+  const bandsLambert = gridToIsobandsGeoJSON(grid, x0Lam, stepLam, options.contourOptions);
   const bandsLonLat = transformIsobandsFromLambert(bandsLambert, projection);
   if (!options.extrema) return bandsLonLat;
 
@@ -410,9 +292,7 @@ export function handleSphericalMode(
   return mergeContourWithExtrema(bandsLonLat, extremaLonLat);
 }
 
-function toExtremaOptions(
-  extrema: InterpolateGeoJSONOptions["extrema"],
-): GridExtremaOptions2D {
+function toExtremaOptions(extrema: InterpolateGeoJSONOptions["extrema"]): GridExtremaOptions2D {
   if (extrema && typeof extrema === "object") {
     return extrema;
   }
@@ -432,9 +312,7 @@ function appendExtremaFeatures<TGeom extends LineString | MultiPolygon>(
     return contourCollection;
   }
 
-  const extremaCollection = gridExtremaToGeoJSON(
-    findGridExtrema2D(grid, x0, step, toExtremaOptions(extrema)),
-  );
+  const extremaCollection = gridExtremaToGeoJSON(findGridExtrema2D(grid, x0, step, toExtremaOptions(extrema)));
   return mergeContourWithExtrema(contourCollection, extremaCollection);
 }
 
@@ -445,12 +323,8 @@ function mergeContourWithExtrema<TGeom extends LineString | MultiPolygon>(
   return {
     type: "FeatureCollection",
     features: [
-      ...(contourCollection.features as Array<
-        Feature<TGeom | Point, InterpolatedContourOrExtremaProperties>
-      >),
-      ...(extremaCollection.features as Array<
-        Feature<TGeom | Point, InterpolatedContourOrExtremaProperties>
-      >),
+      ...(contourCollection.features as Array<Feature<TGeom | Point, InterpolatedContourOrExtremaProperties>>),
+      ...(extremaCollection.features as Array<Feature<TGeom | Point, InterpolatedContourOrExtremaProperties>>),
     ],
   };
 }
@@ -521,11 +395,7 @@ function transformExtremaFromLambert(
       geometry: {
         type: "Point",
         coordinates: (() => {
-          const [lon, lat] = lambertToGeo(
-            projection,
-            feature.geometry.coordinates[0],
-            feature.geometry.coordinates[1],
-          );
+          const [lon, lat] = lambertToGeo(projection, feature.geometry.coordinates[0], feature.geometry.coordinates[1]);
           return [roundOutputNumber(lon), roundOutputNumber(lat)];
         })(),
       },
@@ -543,10 +413,7 @@ function transformExtremaFromLambert(
  * @returns Tuple array in `[x, y, value]` format.
  * @throws If a feature is not a `Point` or has a non-numeric property value.
  */
-export function samplesFromGeoJSON<
-  P extends GeoJsonProperties,
-  K extends string,
->(
+export function samplesFromGeoJSON<P extends GeoJsonProperties, K extends string>(
   featureCollection: FeatureCollection<Point, P>,
   valueProperty: K & keyof NonNullable<P>,
 ): Tuple2DWithValue[] {
@@ -556,17 +423,13 @@ export function samplesFromGeoJSON<
     const feature = featureCollection.features[i];
 
     if (feature.geometry.type !== "Point") {
-      console.warn(
-        `Feature ${i} geometry must be Point, got ${feature.geometry.type}`,
-      );
+      console.warn(`Feature ${i} geometry must be Point, got ${feature.geometry.type}`);
       continue;
     }
 
     const coords = feature.geometry.coordinates;
     if (coords.length !== 2) {
-      console.warn(
-        `Feature ${i} Point coordinates must have length 2, got ${coords.length}`,
-      );
+      console.warn(`Feature ${i} Point coordinates must have length 2, got ${coords.length}`);
       continue;
     }
 
@@ -577,9 +440,7 @@ export function samplesFromGeoJSON<
     }
 
     if (typeof rawValue !== "number" || !Number.isFinite(rawValue)) {
-      throw new Error(
-        `Feature ${i} has non-numeric property '${String(valueProperty)}': ${String(rawValue)}`,
-      );
+      throw new Error(`Feature ${i} has non-numeric property '${String(valueProperty)}': ${String(rawValue)}`);
     }
 
     tupleArray.push([coords[0], coords[1], rawValue]);
@@ -631,26 +492,18 @@ export function gridToIsobandsGeoJSON(
 
   const res = generator(Array.from(grid.data));
 
-  const features: Array<Feature<MultiPolygon, ContourProperties>> = res.map(
-    (item) => ({
-      type: "Feature",
-      properties: {
-        value: roundOutputNumber(item.value),
-      },
-      geometry: {
-        type: "MultiPolygon",
-        coordinates: roundMultiPolygonCoordinates(
-          transformMultiPolygon(
-            item.coordinates as number[][][][],
-            x0x,
-            x0y,
-            stepX,
-            stepY,
-          ),
-        ),
-      },
-    }),
-  );
+  const features: Array<Feature<MultiPolygon, ContourProperties>> = res.map((item) => ({
+    type: "Feature",
+    properties: {
+      value: roundOutputNumber(item.value),
+    },
+    geometry: {
+      type: "MultiPolygon",
+      coordinates: roundMultiPolygonCoordinates(
+        transformMultiPolygon(item.coordinates as number[][][][], x0x, x0y, stepX, stepY),
+      ),
+    },
+  }));
 
   return {
     type: "FeatureCollection",
@@ -687,13 +540,7 @@ export function gridToIsolinesGeoJSON(
     .smooth(options.smooth ?? true);
 
   const res = generator(Array.from(grid.data));
-  const maskInfo = buildFiniteMaskInfo(
-    grid.data,
-    sx,
-    sy,
-    options.smooth ?? true,
-    options.maskThreshold ?? 1,
-  );
+  const maskInfo = buildFiniteMaskInfo(grid.data, sx, sy, options.smooth ?? true, options.maskThreshold ?? 1);
 
   const features: Array<Feature<LineString, ContourProperties>> = [];
 
@@ -703,24 +550,15 @@ export function gridToIsolinesGeoJSON(
 
     for (const polygon of polygons) {
       for (const ring of polygon) {
-        const clippedRings = splitRingByMaskBoundarySegments(
-          ring,
-          maskInfo,
-          sx,
-          sy,
-        );
+        const clippedRings = splitRingByMaskBoundarySegments(ring, maskInfo, sx, sy);
         for (const clippedRing of clippedRings) {
-          const coordinates = clippedRing.map((pos) =>
-            transformPosition(pos, x0x, x0y, stepX, stepY),
-          );
+          const coordinates = clippedRing.map((pos) => transformPosition(pos, x0x, x0y, stepX, stepY));
 
           if (hasFewerThanTwoDistinctPoints(coordinates)) {
             continue;
           }
 
-          const roundedCoordinates = coordinates.map((position) =>
-            roundPosition(position),
-          );
+          const roundedCoordinates = coordinates.map((position) => roundPosition(position));
 
           features.push({
             type: "Feature",
@@ -838,9 +676,7 @@ function dedupeConsecutivePoints(points: readonly number[][]): number[][] {
   return out;
 }
 
-function hasFewerThanTwoDistinctPoints(
-  points: readonly (readonly number[])[],
-): boolean {
+function hasFewerThanTwoDistinctPoints(points: readonly (readonly number[])[]): boolean {
   if (points.length < 2) {
     return true;
   }
@@ -873,10 +709,7 @@ function buildFiniteMaskInfo(
   }
 
   const boundaryVertices = new Set<string>();
-  const contoursOut = contours()
-    .size([sx, sy])
-    .thresholds([maskThreshold])
-    .smooth(smooth)(Array.from(mask));
+  const contoursOut = contours().size([sx, sy]).thresholds([maskThreshold]).smooth(smooth)(Array.from(mask));
 
   for (const contour of contoursOut) {
     const polygons = contour.coordinates as number[][][][];
@@ -949,13 +782,7 @@ function isMaskBoundarySegment(
   return false;
 }
 
-function isFiniteMaskAt(
-  finiteMask: Uint8Array,
-  sx: number,
-  sy: number,
-  x: number,
-  y: number,
-): boolean {
+function isFiniteMaskAt(finiteMask: Uint8Array, sx: number, sy: number, x: number, y: number): boolean {
   const ix = Math.floor(x);
   const iy = Math.floor(y);
   if (ix < 0 || iy < 0 || ix >= sx || iy >= sy) {
@@ -992,8 +819,7 @@ function positionsEqual(a: readonly number[], b: readonly number[]): boolean {
 export function gridExtremaToGeoJSON(
   extrema: ReadonlyArray<GridExtremaPoint2D>,
 ): FeatureCollection<Point, GridExtremaGeoJSONProperties> {
-  const features: Array<Feature<Point, GridExtremaGeoJSONProperties>> =
-    new Array(extrema.length);
+  const features: Array<Feature<Point, GridExtremaGeoJSONProperties>> = new Array(extrema.length);
 
   for (let i = 0; i < extrema.length; i++) {
     const item = extrema[i];
@@ -1019,29 +845,20 @@ export function gridExtremaToGeoJSON(
 
 function ensure2DGrid(grid: BarnesResult): void {
   if (grid.dimension !== 2) {
-    throw new Error(
-      `GeoJSON contour conversion expects 2D BarnesResult, got ${grid.dimension}D`,
-    );
+    throw new Error(`GeoJSON contour conversion expects 2D BarnesResult, got ${grid.dimension}D`);
   }
   if (grid.shape.length !== 2) {
-    throw new Error(
-      `GeoJSON contour conversion expects shape [sx, sy], got ${grid.shape}`,
-    );
+    throw new Error(`GeoJSON contour conversion expects shape [sx, sy], got ${grid.shape}`);
   }
 }
 
-function normalize2DVector(
-  value: ScalarOrVector,
-  name: string,
-): [number, number] {
+function normalize2DVector(value: ScalarOrVector, name: string): [number, number] {
   if (typeof value === "number") {
     return [value, value];
   }
   const arr = Array.from(value);
   if (arr.length !== 2) {
-    throw new Error(
-      `${name} must be scalar or length-2 array, got length ${arr.length}`,
-    );
+    throw new Error(`${name} must be scalar or length-2 array, got length ${arr.length}`);
   }
   return [arr[0], arr[1]];
 }
@@ -1070,16 +887,12 @@ function transformMultiPolygon(
   stepY: number,
 ): Position[][][] {
   return coords.map((polygon) =>
-    polygon.map((ring) =>
-      ring.map((pos) => transformPosition(pos, x0, y0, stepX, stepY)),
-    ),
+    polygon.map((ring) => ring.map((pos) => transformPosition(pos, x0, y0, stepX, stepY))),
   );
 }
 
 function roundMultiPolygonCoordinates(coords: Position[][][]): Position[][][] {
-  return coords.map((polygon) =>
-    polygon.map((ring) => ring.map((position) => roundPosition(position))),
-  );
+  return coords.map((polygon) => polygon.map((ring) => ring.map((position) => roundPosition(position))));
 }
 
 function roundPosition(pos: readonly number[]): Position {
@@ -1089,13 +902,7 @@ function roundPosition(pos: readonly number[]): Position {
   return [roundOutputNumber(pos[0]), roundOutputNumber(pos[1])];
 }
 
-function transformPosition(
-  pos: readonly number[],
-  x0: number,
-  y0: number,
-  stepX: number,
-  stepY: number,
-): Position {
+function transformPosition(pos: readonly number[], x0: number, y0: number, stepX: number, stepY: number): Position {
   if (pos.length < 2) {
     throw new Error(`Invalid contour coordinate: ${pos}`);
   }

@@ -3,9 +3,7 @@ import type { GeoJSONSphericalOptions, LambertProjectionParams } from "./types";
 const RAD_PER_DEGREE = Math.PI / 180.0;
 const HALF_RAD_PER_DEGREE = RAD_PER_DEGREE / 2.0;
 
-export function validateSphericalCoordinates(
-  points: ReadonlyArray<ReadonlyArray<number>>,
-): void {
+export function validateSphericalCoordinates(points: ReadonlyArray<ReadonlyArray<number>>): void {
   const [lon, lat] = points[0];
 
   if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
@@ -65,16 +63,11 @@ export function createLambertProjection(
   const n =
     Math.abs(lat1 - lat2) > 1e-8
       ? Math.log(Math.cos(lat1Rad) / Math.cos(lat2Rad)) /
-        Math.log(
-          Math.tan((90.0 + lat2) * HALF_RAD_PER_DEGREE) /
-            Math.tan((90.0 + lat1) * HALF_RAD_PER_DEGREE),
-        )
+        Math.log(Math.tan((90.0 + lat2) * HALF_RAD_PER_DEGREE) / Math.tan((90.0 + lat1) * HALF_RAD_PER_DEGREE))
       : Math.sin(lat1Rad);
 
   const nInv = 1.0 / n;
-  const f =
-    (Math.cos(lat1Rad) * Math.tan((90.0 + lat1) * HALF_RAD_PER_DEGREE) ** n) /
-    n;
+  const f = (Math.cos(lat1Rad) * Math.tan((90.0 + lat1) * HALF_RAD_PER_DEGREE) ** n) / n;
   const rho0 = f / Math.tan((90.0 + centerLat) * HALF_RAD_PER_DEGREE) ** n;
 
   return {
@@ -87,24 +80,13 @@ export function createLambertProjection(
   };
 }
 
-export function lambertToMap(
-  proj: LambertProjectionParams,
-  lon: number,
-  lat: number,
-): [number, number] {
+export function lambertToMap(proj: LambertProjectionParams, lon: number, lat: number): [number, number] {
   const rho = proj.f / Math.tan((90.0 + lat) * HALF_RAD_PER_DEGREE) ** proj.n;
   const arg = proj.n * (lon - proj.centerLon) * RAD_PER_DEGREE;
-  return [
-    (rho * Math.sin(arg)) / RAD_PER_DEGREE,
-    (proj.rho0 - rho * Math.cos(arg)) / RAD_PER_DEGREE,
-  ];
+  return [(rho * Math.sin(arg)) / RAD_PER_DEGREE, (proj.rho0 - rho * Math.cos(arg)) / RAD_PER_DEGREE];
 }
 
-export function lambertToGeo(
-  proj: LambertProjectionParams,
-  mapX: number,
-  mapY: number,
-): [number, number] {
+export function lambertToGeo(proj: LambertProjectionParams, mapX: number, mapY: number): [number, number] {
   const x = mapX * RAD_PER_DEGREE;
   const arg = proj.rho0 - mapY * RAD_PER_DEGREE;
   let rho = Math.sqrt(x * x + arg * arg);

@@ -25,8 +25,7 @@ export type GridExtremaPoint2D = {
   j: number; // grid-space y coordinate
   x: number; // data-space x coordinate (project to geo coords)
   y: number; // data-space y coordinate (project to geo coords)
-}
-   
+};
 
 export interface GridExtremaOptions2D {
   radius?: number;
@@ -35,12 +34,9 @@ export interface GridExtremaOptions2D {
   maxCountPerKind?: number;
 }
 
-export type GridExtremaGeoJSONProperties = Pick<GridExtremaPoint2D, "kind" | "value" | "prominence">
+export type GridExtremaGeoJSONProperties = Pick<GridExtremaPoint2D, "kind" | "value" | "prominence">;
 
-export type PointInput =
-  | number[]
-  | ArrayLike<number>
-  | ReadonlyArray<ReadonlyArray<number>>;
+export type PointInput = number[] | ArrayLike<number> | ReadonlyArray<ReadonlyArray<number>>;
 export type ValueInput = ArrayLike<number>;
 export type ScalarOrVector = number | ArrayLike<number>;
 export type SizeInput = number | ReadonlyArray<number>;
@@ -48,10 +44,7 @@ export type SizeInput = number | ReadonlyArray<number>;
 export type Tuple1DWithValue = [number, number];
 export type Tuple2DWithValue = [number, number, number];
 export type Tuple3DWithValue = [number, number, number, number];
-export type TupleWithValue =
-  | Tuple1DWithValue
-  | Tuple2DWithValue
-  | Tuple3DWithValue;
+export type TupleWithValue = Tuple1DWithValue | Tuple2DWithValue | Tuple3DWithValue;
 
 export interface GridContourOptions {
   spacing: number;

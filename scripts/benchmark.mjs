@@ -18,8 +18,7 @@ function createSyntheticDataset(sampleCount, bounds, seed = 42) {
     const x = xMin + rand() * (xMax - xMin);
     const y = yMin + rand() * (yMax - yMin);
 
-    const signal =
-      2.2 * Math.sin(0.55 * x) + 1.4 * Math.cos(0.42 * y) + 0.6 * Math.sin(0.2 * x * y);
+    const signal = 2.2 * Math.sin(0.55 * x) + 1.4 * Math.cos(0.42 * y) + 0.6 * Math.sin(0.2 * x * y);
 
     const noise = (rand() - 0.5) * 0.2;
 
@@ -98,9 +97,7 @@ function main() {
   console.log(`repetitions:${reps}`);
   console.log("");
 
-  const naiveRes = runTimed(reps, () =>
-    barnes(points, values, sigma, x0, step, size, { method: "naive" }),
-  );
+  const naiveRes = runTimed(reps, () => barnes(points, values, sigma, x0, step, size, { method: "naive" }));
 
   const convRes = runTimed(reps, () =>
     barnes(points, values, sigma, x0, step, size, {

@@ -15,7 +15,13 @@ export {
   samplesFromGeoJSON,
   tupleArrayToGeoJSON,
 } from "./geojson";
-export {get2DTupleDataProfile, getBarnesParams, buildSpacedThresholds, normalizeResolution, resolveThresholds} from "./helpers";
+export {
+  get2DTupleDataProfile,
+  getBarnesParams,
+  buildSpacedThresholds,
+  normalizeResolution,
+  resolveThresholds,
+} from "./helpers";
 
 export type {
   BarnesMethod,

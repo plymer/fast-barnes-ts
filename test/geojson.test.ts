@@ -22,14 +22,11 @@ function lcg(seed: number): () => number {
 const OUTPUT_PRECISION_SCALE = 1e3;
 
 function expectRoundedToFiveDecimals(value: number): void {
-  const rounded =
-    Math.round(value * OUTPUT_PRECISION_SCALE) / OUTPUT_PRECISION_SCALE;
+  const rounded = Math.round(value * OUTPUT_PRECISION_SCALE) / OUTPUT_PRECISION_SCALE;
   expect(Math.abs(value - rounded)).toBeLessThanOrEqual(1e-10);
 }
 
-function assertLineStringCoordinatesRounded(
-  coordinates: ReadonlyArray<ReadonlyArray<number>>,
-): void {
+function assertLineStringCoordinatesRounded(coordinates: ReadonlyArray<ReadonlyArray<number>>): void {
   for (const position of coordinates) {
     expectRoundedToFiveDecimals(position[0]);
     expectRoundedToFiveDecimals(position[1]);
@@ -37,9 +34,7 @@ function assertLineStringCoordinatesRounded(
 }
 
 function assertMultiPolygonCoordinatesRounded(
-  coordinates: ReadonlyArray<
-    ReadonlyArray<ReadonlyArray<ReadonlyArray<number>>>
-  >,
+  coordinates: ReadonlyArray<ReadonlyArray<ReadonlyArray<ReadonlyArray<number>>>>,
 ): void {
   for (const polygon of coordinates) {
     for (const ring of polygon) {
@@ -339,33 +334,17 @@ describe("geojson", () => {
       [1.7654321, 2.3456789, 2.5555555],
     ];
 
-    const grid = barnes(
-      samples,
-      0.45,
-      [0.1234567, 0.7654321],
-      [0.137913, 0.091357],
-      [28, 24],
-    );
+    const grid = barnes(samples, 0.45, [0.1234567, 0.7654321], [0.137913, 0.091357], [28, 24]);
 
-    const isolines = gridToIsolinesGeoJSON(
-      grid,
-      [0.1234567, 0.7654321],
-      [0.137913, 0.091357],
-      {
-        spacing: 0.2,
-        base: 0,
-      },
-    );
+    const isolines = gridToIsolinesGeoJSON(grid, [0.1234567, 0.7654321], [0.137913, 0.091357], {
+      spacing: 0.2,
+      base: 0,
+    });
 
-    const isobands = gridToIsobandsGeoJSON(
-      grid,
-      [0.1234567, 0.7654321],
-      [0.137913, 0.091357],
-      {
-        spacing: 0.2,
-        base: 0,
-      },
-    );
+    const isobands = gridToIsobandsGeoJSON(grid, [0.1234567, 0.7654321], [0.137913, 0.091357], {
+      spacing: 0.2,
+      base: 0,
+    });
 
     expect(isolines.features.length).toBeGreaterThan(0);
     for (const feature of isolines.features) {
@@ -405,10 +384,7 @@ describe("geojson", () => {
 
     const isClose = (a: number, b: number): boolean => Math.abs(a - b) <= eps;
 
-    const isBoundarySegment = (
-      a: readonly number[],
-      b: readonly number[],
-    ): boolean => {
+    const isBoundarySegment = (a: readonly number[], b: readonly number[]): boolean => {
       return (
         (isClose(a[0], xMin) && isClose(b[0], xMin)) ||
         (isClose(a[0], xMax) && isClose(b[0], xMax)) ||
@@ -417,9 +393,7 @@ describe("geojson", () => {
       );
     };
 
-    const hasBoundarySegment = (
-      coords: readonly (readonly number[])[],
-    ): boolean => {
+    const hasBoundarySegment = (coords: readonly (readonly number[])[]): boolean => {
       for (let i = 0; i + 1 < coords.length; i++) {
         if (isBoundarySegment(coords[i], coords[i + 1])) {
           return true;
@@ -579,16 +553,11 @@ describe("geojson", () => {
       })),
     };
 
-    const linesFromFC = geoJSONtoGeoJSON(
-      featureCollection,
-      "value",
-      "isobands",
-      {
-        resolution: 64,
-        coordinateMode: "euclidean",
-        contourOptions: { spacing: 0.25, base: 0 },
-      },
-    );
+    const linesFromFC = geoJSONtoGeoJSON(featureCollection, "value", "isobands", {
+      resolution: 64,
+      coordinateMode: "euclidean",
+      contourOptions: { spacing: 0.25, base: 0 },
+    });
 
     const tupleLines = tupleArrayToGeoJSON(samples, "isobands", {
       resolution: 64,
@@ -598,9 +567,7 @@ describe("geojson", () => {
 
     expect(tupleLines.features.length).toBe(linesFromFC.features.length);
     expect(tupleLines.features[0]).toStrictEqual(linesFromFC.features[0]);
-    expect(tupleLines.features[0].properties.value).toBeCloseTo(
-      linesFromFC.features[0].properties.value,
-    );
+    expect(tupleLines.features[0].properties.value).toBeCloseTo(linesFromFC.features[0].properties.value);
   });
 
   it("handles empty input gracefully", () => {
@@ -682,9 +649,7 @@ describe("geojson", () => {
       // @ts-expect-error -- without extrema the geometries are all isolines and no points
       (f) => f.geometry.type === "Point",
     ).length;
-    const pointCountWith = withExtrema.features.filter(
-      (f) => f.geometry.type === "Point",
-    ).length;
+    const pointCountWith = withExtrema.features.filter((f) => f.geometry.type === "Point").length;
 
     expect(pointCountWithout).toBe(0);
     expect(pointCountWith).toBeGreaterThan(0);
@@ -719,9 +684,7 @@ describe("geojson", () => {
       extrema: { minProminence: 0.001, minSeparation: 0.5 },
     });
 
-    const pointFeatures = out.features.filter(
-      (f) => f.geometry.type === "Point",
-    );
+    const pointFeatures = out.features.filter((f) => f.geometry.type === "Point");
     expect(pointFeatures.length).toBeGreaterThan(0);
   });
 

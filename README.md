@@ -1,16 +1,24 @@
 # fast-barnes-ts
 
-Fast Barnes interpolation for irregularly spaced 1D/2D/3D samples, implemented in TypeScript for Node.js and browser bundles.
+Fast Barnes interpolation for irregularly spaced 1D/2D/3D samples, implemented in TypeScript for Node.js and browser
+bundles.
 
-This package ports the [fast convolution-based approach from MeteoSwiss `fast-barnes-py`](https://github.com/MeteoSwiss/fast-barnes-py) into an npm-friendly TypeScript API.
+This package ports the
+[fast convolution-based approach from MeteoSwiss `fast-barnes-py`](https://github.com/MeteoSwiss/fast-barnes-py) into an
+npm-friendly TypeScript API.
 
-It includes built-in support for reading GeoJSON `FeatureCollection` point data and generating contour outputs as GeoJSON `FeatureCollection` isolines or isobands.
+It includes built-in support for reading GeoJSON `FeatureCollection` point data and generating contour outputs as
+GeoJSON `FeatureCollection` isolines or isobands.
 
-> This project was created with extensive help from GPT-5.3-Codex but ground-truthed by a professional operational meteorologist
+> This project was created with extensive help from GPT-5.3-Codex but ground-truthed by a professional operational
+> meteorologist
 
 ## Acknowledgements
 
-This is a mostly vibe-coded port of Bruno Zürcher's [incredible work](https://gmd.copernicus.org/articles/16/1697/2023/gmd-16-1697-2023.pdf) building the `fast-barnes-py` package and would be impossible without him. This package was created to fill a need for a fast, browser-capable solution to interpolating weather data.
+This is a mostly vibe-coded port of Bruno Zürcher's
+[incredible work](https://gmd.copernicus.org/articles/16/1697/2023/gmd-16-1697-2023.pdf) building the `fast-barnes-py`
+package and would be impossible without him. This package was created to fill a need for a fast, browser-capable
+solution to interpolating weather data.
 
 ## Features
 
@@ -82,10 +90,7 @@ const isobands = geoJSONtoGeoJSON(stations, "pressure", "isoband", {
 Or, convert a tuple array in the form of `[x, y, value][]` directly to contours.
 
 ```ts
-import {
-  tupleArrayToGeoJSON,
-  type Tuple2DWithValue,
-} from "@plymer/fast-barnes-ts";
+import { tupleArrayToGeoJSON, type Tuple2DWithValue } from "@plymer/fast-barnes-ts";
 
 const samples: Tuple2DWithValue[] = [
   [0.2, 0.2, 1.0],
@@ -107,13 +112,11 @@ const isobands = tupleArrayToGeoJSON(samples, "isobands", {
 
 Both `isolines` and `isobands` are returned as GeoJSON `FeatureCollection` objects.
 
-Isoline output is clipped at the interpolation domain edge, so contours end at
-the boundary instead of tracing the rectangular grid frame. Interior no-data
-(NaN) void boundaries are also excluded from isoline output. Isobands keep
+Isoline output is clipped at the interpolation domain edge, so contours end at the boundary instead of tracing the
+rectangular grid frame. Interior no-data (NaN) void boundaries are also excluded from isoline output. Isobands keep
 their full polygon geometry.
 
-Set `extrema: true` (or pass extrema options) to append local max/min `Point`
-features to the same output collection.
+Set `extrema: true` (or pass extrema options) to append local max/min `Point` features to the same output collection.
 
 ## Core API
 
@@ -191,16 +194,10 @@ const { x0, step, size } = getBarnesParams(samples, {
 });
 ```
 
-Spherical mode (`[longitude, latitude, value]` input) returns projected-grid
-params plus projection helpers:
+Spherical mode (`[longitude, latitude, value]` input) returns projected-grid params plus projection helpers:
 
 ```ts
-import {
-  barnes,
-  getBarnesParams,
-  type LambertProjectionParams,
-  type Tuple2DWithValue,
-} from "fast-barnes-ts";
+import { barnes, getBarnesParams, type LambertProjectionParams, type Tuple2DWithValue } from "fast-barnes-ts";
 
 const stations: Tuple2DWithValue[] = [
   [-128.154, 52.181, 1022.9],
@@ -244,16 +241,10 @@ Notes:
 
 ## Finding High/Low Pressure Centres
 
-After interpolation, you can detect local maxima/minima (for highs/lows) and
-export them as GeoJSON points.
+After interpolation, you can detect local maxima/minima (for highs/lows) and export them as GeoJSON points.
 
 ```ts
-import {
-  barnes,
-  findGridExtrema2D,
-  gridExtremaToGeoJSON,
-  type Tuple2DWithValue,
-} from "fast-barnes-ts";
+import { barnes, findGridExtrema2D, gridExtremaToGeoJSON, type Tuple2DWithValue } from "fast-barnes-ts";
 
 const samples: Tuple2DWithValue[] = [
   [-4.0, 51.0, 1008.2],

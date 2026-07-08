@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  barnes,
-  findGridExtrema2D,
-  getHalfKernelSizeOpt,
-  toNestedArray,
-} from "../src";
+import { barnes, findGridExtrema2D, getHalfKernelSizeOpt, toNestedArray } from "../src";
 
 function lcg(seed: number): () => number {
   let state = seed >>> 0;
@@ -155,13 +150,7 @@ describe("barnes", () => {
       [0.4, 1.7, 1.2, 1.4],
     ];
 
-    const tupleInput = barnes(
-      tupleArray,
-      [0.8, 0.8, 0.8],
-      [0, 0, 0],
-      0.5,
-      [8, 6, 5],
-    );
+    const tupleInput = barnes(tupleArray, [0.8, 0.8, 0.8], [0, 0, 0], 0.5, [8, 6, 5]);
     const pointsAndValues = barnes(
       tupleArray.map(([x, y, z]) => [x, y, z]),
       tupleArray.map(([, , , value]) => value),
@@ -193,9 +182,7 @@ describe("barnes", () => {
       [1.2, Number.NaN, 2.0],
     ] as [number, number, number][];
 
-    expect(() => barnes(tupleArray, 0.8, [0, 0], 0.25, [16, 12])).toThrow(
-      /tupleArray entries must be/,
-    );
+    expect(() => barnes(tupleArray, 0.8, [0, 0], 0.25, [16, 12])).toThrow(/tupleArray entries must be/);
   });
 
   it("finds representative maxima and minima on a 2D grid", () => {
@@ -279,5 +266,4 @@ describe("barnes", () => {
     // Strongest low should be retained near profile minimum.
     expect(minimaSuppressed.some((e) => e.i === 7 && e.j === yMid)).toBe(true);
   });
-
 });
