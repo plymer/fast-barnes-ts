@@ -453,8 +453,8 @@ function splitTuple2DArray(tupleArray: Tuple2DWithValue[]): {
   points: number[][];
   values: number[];
 } {
-  const points = new Array<number[]>(tupleArray.length);
-  const values = new Array<number>(tupleArray.length);
+  const points: number[][] = Array.from({ length: tupleArray.length });
+  const values: number[] = Array.from({ length: tupleArray.length });
 
   for (let i = 0; i < tupleArray.length; i++) {
     const [x, y, value] = tupleArray[i];
@@ -595,7 +595,7 @@ function splitRingByMaskBoundarySegments(
   }
 
   const segmentCount = points.length;
-  const removeSegment = new Array<boolean>(segmentCount);
+  const removeSegment: boolean[] = Array.from({ length: segmentCount });
 
   let firstRemovedIndex = -1;
   for (let i = 0; i < segmentCount; i++) {
@@ -819,7 +819,7 @@ function positionsEqual(a: readonly number[], b: readonly number[]): boolean {
 export function gridExtremaToGeoJSON(
   extrema: ReadonlyArray<GridExtremaPoint2D>,
 ): FeatureCollection<Point, GridExtremaGeoJSONProperties> {
-  const features: Array<Feature<Point, GridExtremaGeoJSONProperties>> = new Array(extrema.length);
+  const features: Array<Feature<Point, GridExtremaGeoJSONProperties>> = Array.from({ length: extrema.length });
 
   for (let i = 0; i < extrema.length; i++) {
     const item = extrema[i];

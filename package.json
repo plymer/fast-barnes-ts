@@ -1,6 +1,6 @@
 {
   "name": "@plymer/fast-barnes-ts",
-  "version": "0.4.0-rc0",
+  "version": "0.4.0-rc1",
   "private": false,
   "description": "Fast Barnes interpolation for irregularly spaced 1D, 2D and 3D sample data in TypeScript.",
   "keywords": [
