@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { barnes, findGridExtrema2D } from "../src/barnes";
+import { barnes } from "../src/barnes";
 import {
   gridToIsobandsGeoJSON,
   gridToIsolinesGeoJSON,
@@ -8,8 +8,9 @@ import {
   samplesFromGeoJSON,
   tupleArrayToGeoJSON,
 } from "../src/geojson";
-import { FeatureCollection, GeoJsonProperties, Point } from "geojson";
-import { Tuple2DWithValue } from "../src/types";
+import type { FeatureCollection, GeoJsonProperties, Point } from "geojson";
+import type { Tuple2DWithValue } from "../src/types";
+import { findGridExtrema2D } from "../src/extrema";
 
 function lcg(seed: number): () => number {
   let state = seed >>> 0;

@@ -1,6 +1,5 @@
 export {
   barnes,
-  findGridExtrema2D,
   getHalfKernelSize,
   getHalfKernelSizeOpt,
   getSigmaEffective,
@@ -45,3 +44,6 @@ export type {
   TupleWithValue,
   ValueInput,
 } from "./types";
+
+export * from "./extrema";
+export * from "./march";

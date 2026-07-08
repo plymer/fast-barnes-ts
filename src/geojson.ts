@@ -12,7 +12,7 @@ import type {
   ScalarOrVector,
   Tuple2DWithValue,
 } from "./types";
-import { barnes, findGridExtrema2D } from "./barnes";
+import { barnes } from "./barnes";
 import { normalizeResolution, resolveThresholds } from "./helpers";
 import {
   createLambertProjection,
@@ -21,6 +21,7 @@ import {
   lambertToMap,
   validateSphericalCoordinates,
 } from "./spherical";
+import { findGridExtrema2D } from "./extrema";
 
 export interface ContourProperties {
   value: number;
