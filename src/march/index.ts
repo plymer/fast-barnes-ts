@@ -1,4 +1,9 @@
-export { generateMarchedIsolines, generateGeoJson, convertToGeographicCoordinates } from "./isolines.js";
+export {
+  generateMarchedIsolines,
+  tupleArrayToGeoJson,
+  getIsolineThreshold,
+  convertToGeographicCoordinates,
+} from "./isolines.js";
 export {
   marchingSquares,
   type Edge,
