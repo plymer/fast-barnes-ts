@@ -1,9 +1,9 @@
-import type { Feature, LineString, Point as GeoPoint } from "geojson";
+import type { Feature, LineString } from "geojson";
 import { barnes } from "../barnes.js";
 import { getBarnesParams } from "../helpers.js";
 import type { Tuple2DWithValue, BarnesOptions, GridExtremaOptions2D } from "../types.js";
 import { marchingSquares, type PolylinesWithLevels, type Point } from "./march.js";
-import { findGridExtrema2D } from "../extrema/index.js";
+import { getExtremaAsGeoJson } from "../extrema/index.js";
 
 export function convertToGeographicCoordinates(
   lines: Point[],
@@ -54,23 +54,15 @@ export function tupleArrayToGeoJson(
     },
   }));
 
-  const extrema: Feature<GeoPoint>[] = (
-    options.extrema
-      ? findGridExtrema2D(barnesResult, barnesParams.x0, barnesParams.step, options.extremaOptions ?? {})
-      : []
-  ).map((e) => {
-    return {
-      type: "Feature",
-      geometry: {
-        type: "Point",
-        coordinates: barnesParams.unproject(e.x, e.y),
-      },
-      properties: {
-        kind: e.kind,
-        value: e.value,
-      },
-    };
-  });
+  const extrema = options.extrema
+    ? getExtremaAsGeoJson(
+        barnesResult,
+        barnesParams.x0,
+        barnesParams.step,
+        options.extremaOptions ?? {},
+        barnesParams.unproject,
+      )
+    : [];
 
   return { features: [...lines, ...extrema], type: "FeatureCollection" };
 }

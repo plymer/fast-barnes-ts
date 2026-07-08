@@ -217,9 +217,14 @@ function normalize2DVectorForExtrema(value: ScalarOrVector, name: string): [numb
 }
 
 export function getExtremaAsGeoJson(
-  extrema: GridExtremaPoint2D[],
+  grid: BarnesResult,
+  x0: ScalarOrVector,
+  step: ScalarOrVector,
+  options: GridExtremaOptions2D = {},
   projectionFn: ReturnType<typeof getBarnesParams>["unproject"],
 ): Feature<Point, { kind: "max" | "min"; value: number }>[] {
+  const extrema = findGridExtrema2D(grid, x0, step, options);
+
   return extrema.map((e) => ({
     type: "Feature",
     geometry: {
@@ -235,9 +240,13 @@ export function getExtremaAsGeoJson(
 
 export function getExtremaLocations(
   field: string,
-  extrema: GridExtremaPoint2D[],
+  grid: BarnesResult,
+  x0: ScalarOrVector,
+  step: ScalarOrVector,
+  options: GridExtremaOptions2D = {},
   projectionFn: ReturnType<typeof getBarnesParams>["unproject"],
 ): { field: string; kind: GridExtremaKind; lng: number; lat: number; value: number }[] {
+  const extrema = findGridExtrema2D(grid, x0, step, options);
   return extrema.map((e) => ({
     field,
     kind: e.kind,
