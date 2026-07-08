@@ -44,12 +44,12 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsdown",
     "prepublishOnly": "pnpm build",
     "benchmark": "npm run build && BENCH_SAMPLES=400 BENCH_RESOLUTION=4 BENCH_REPS=1 node scripts/benchmark.mjs",
     "benchmark:custom": "npm run build && node scripts/benchmark.mjs",
     "clean": "rm -rf dist",
-    "dev": "tsup --watch",
+    "dev": "tsdown --watch",
     "example:geojson": "npm run build && node examples/export-geojson.mjs",
     "example:local:interpolate": "npm run build && node examples/local/interpolate-local.mjs",
     "example:local:maplibre": "npm run build && node examples/serve.mjs",
@@ -68,7 +68,7 @@
     "@types/geojson": "^7946.0.16",
     "oxfmt": "^0.57.0",
     "oxlint": "^1.72.0",
-    "tsup": "^8.5.1",
+    "tsdown": "^0.22.3",
     "typescript": "^6.0.3",
     "vitest": "^4.1.2"
   },

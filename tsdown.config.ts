@@ -1,4 +1,4 @@
-import { defineConfig } from "tsup";
+import { defineConfig } from "tsdown";
 
 export default defineConfig({
   entry: ["src/index.ts"],
@@ -8,5 +8,9 @@ export default defineConfig({
   clean: true,
   minify: false,
   treeshake: true,
-  noExternal: ["d3-contour"],
+  outDir: "dist",
+  deps: {
+    alwaysBundle: ["d3-contour"],
+  },
+  target: false,
 });

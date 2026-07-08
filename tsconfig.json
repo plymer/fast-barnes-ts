@@ -13,8 +13,8 @@
     "isolatedModules": true,
     "exactOptionalPropertyTypes": true,
     "verbatimModuleSyntax": true,
-    "rootDir": "src",
-    "outDir": "dist"
+    "rootDir": ".",
+    "outDir": "./dist"
   },
   "include": ["src", "test", "tsup.config.ts", "vitest.config.ts"]
 }
