@@ -331,7 +331,7 @@ export function findGridExtrema2D(
   const minSeparation = options.minSeparation ?? 2;
   const minProminence = options.minProminence ?? 0.01;
   const maxCountPerKind = options.maxCountPerKind;
-  const ignoreBorder = options.ignoreBorder ?? true;
+  
 
   if (!Number.isInteger(radius) || radius < 1) {
     throw new Error(`radius must be an integer >= 1, got ${radius}`);
@@ -355,10 +355,10 @@ export function findGridExtrema2D(
   const candidatesMax: GridExtremaPoint2D[] = [];
   const candidatesMin: GridExtremaPoint2D[] = [];
 
-  const iStart = ignoreBorder ? radius : 0;
-  const iEnd = ignoreBorder ? sx - radius : sx;
-  const jStart = ignoreBorder ? radius : 0;
-  const jEnd = ignoreBorder ? sy - radius : sy;
+  const iStart =  radius ;
+  const iEnd =  sx - radius ;
+  const jStart = radius ;
+  const jEnd = sy - radius ;
 
   for (let j = jStart; j < jEnd; j++) {
     const rowOffset = j * sx;
@@ -386,11 +386,8 @@ export function findGridExtrema2D(
           if (ni === i && nj === j) continue;
           const neighbor = data[nRow + ni];
           if (!Number.isFinite(neighbor)) {
-            if (ignoreBorder) {
               touchesInvalidNeighbor = true;
               break;
-            }
-            continue;
           }
 
           hasNeighbor = true;

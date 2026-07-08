@@ -32,7 +32,6 @@ export interface GridExtremaOptions2D {
   minSeparation?: number;
   minProminence?: number;
   maxCountPerKind?: number;
-  ignoreBorder?: boolean;
 }
 
 export interface GridExtremaGeoJSONProperties {
