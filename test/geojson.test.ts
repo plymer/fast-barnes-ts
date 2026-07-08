@@ -1,16 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { barnes } from "../src/barnes";
 import {
+  barnes,
+  findGridExtrema2D,
   gridToIsobandsGeoJSON,
   gridToIsolinesGeoJSON,
   geoJSONtoGeoJSON,
   gridExtremaToGeoJSON,
   samplesFromGeoJSON,
   tupleArrayToGeoJSON,
-} from "../src/geojson";
+  type Tuple2DWithValue,
+} from "../src";
+
 import type { FeatureCollection, GeoJsonProperties, Point } from "geojson";
-import type { Tuple2DWithValue } from "../src/types";
-import { findGridExtrema2D } from "../src/extrema";
 
 function lcg(seed: number): () => number {
   let state = seed >>> 0;
