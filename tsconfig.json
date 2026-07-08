@@ -12,7 +12,9 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "exactOptionalPropertyTypes": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "rootDir": "src",
+    "outDir": "dist"
   },
   "include": ["src", "test", "tsup.config.ts", "vitest.config.ts"]
 }
