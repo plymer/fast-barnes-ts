@@ -1,4 +1,6 @@
-import type { BarnesResult, GridExtremaOptions2D, GridExtremaPoint2D, ScalarOrVector } from "../types";
+import type { Feature, Point } from "geojson";
+import type { getBarnesParams } from "../helpers";
+import type { BarnesResult, GridExtremaKind, GridExtremaOptions2D, GridExtremaPoint2D, ScalarOrVector } from "../types";
 
 /**
  * Finds local maxima and minima on a 2D interpolation grid.
@@ -108,7 +110,7 @@ export function findGridExtrema2D(
         if (prominence >= minProminence) {
           candidatesMax.push({
             kind: "max",
-            value: center,
+            value: Math.ceil(center),
             prominence,
             gridIndex: idx,
             i,
@@ -124,7 +126,7 @@ export function findGridExtrema2D(
         if (prominence >= minProminence) {
           candidatesMin.push({
             kind: "min",
-            value: center,
+            value: Math.floor(center),
             prominence,
             gridIndex: idx,
             i,
@@ -212,4 +214,35 @@ function normalize2DVectorForExtrema(value: ScalarOrVector, name: string): [numb
   }
 
   return [x, y];
+}
+
+export function getExtremaAsGeoJson(
+  extrema: GridExtremaPoint2D[],
+  projectionFn: ReturnType<typeof getBarnesParams>["unproject"],
+): Feature<Point, { kind: "max" | "min"; value: number }>[] {
+  return extrema.map((e) => ({
+    type: "Feature",
+    geometry: {
+      type: "Point",
+      coordinates: projectionFn(e.x, e.y),
+    },
+    properties: {
+      kind: e.kind,
+      value: e.value,
+    },
+  }));
+}
+
+export function getExtremaLocations(
+  field: string,
+  extrema: GridExtremaPoint2D[],
+  projectionFn: ReturnType<typeof getBarnesParams>["unproject"],
+): { field: string; kind: GridExtremaKind; lng: number; lat: number; value: number }[] {
+  return extrema.map((e) => ({
+    field,
+    kind: e.kind,
+    lng: projectionFn(e.x, e.y)[0],
+    lat: projectionFn(e.x, e.y)[1],
+    value: e.value,
+  }));
 }
