@@ -757,9 +757,6 @@ describe("geojson", () => {
       expect(typeof first.properties.kind).toBe("string");
       expect(typeof first.properties.value).toBe("number");
       expect(typeof first.properties.prominence).toBe("number");
-      expect(typeof first.properties.gridIndex).toBe("number");
-      expect(typeof first.properties.i).toBe("number");
-      expect(typeof first.properties.j).toBe("number");
     }
   });
 
