@@ -16,16 +16,17 @@ export interface BarnesResult {
 
 export type GridExtremaKind = "max" | "min";
 
-export interface GridExtremaPoint2D {
+export type GridExtremaPoint2D = {
   kind: GridExtremaKind;
   value: number;
   prominence: number;
   gridIndex: number;
-  i: number;
-  j: number;
-  x: number;
-  y: number;
+  i: number; // grid-space x coordinate
+  j: number; // grid-space y coordinate
+  x: number; // data-space x coordinate (project to geo coords)
+  y: number; // data-space y coordinate (project to geo coords)
 }
+   
 
 export interface GridExtremaOptions2D {
   radius?: number;
@@ -34,14 +35,7 @@ export interface GridExtremaOptions2D {
   maxCountPerKind?: number;
 }
 
-export interface GridExtremaGeoJSONProperties {
-  kind: GridExtremaKind;
-  value: number;
-  prominence: number;
-  gridIndex: number;
-  i: number;
-  j: number;
-}
+export type GridExtremaGeoJSONProperties = Pick<GridExtremaPoint2D, "kind" | "value" | "prominence">
 
 export type PointInput =
   | number[]

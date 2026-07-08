@@ -311,9 +311,6 @@ export function handleSphericalMode(
             value: roundOutputNumber(value),
             kind: "max",
             prominence: 0,
-            gridIndex: 0,
-            i: 0,
-            j: 0,
           },
           geometry: {
             type: "Point",
@@ -1006,9 +1003,6 @@ export function gridExtremaToGeoJSON(
         kind: item.kind,
         value: roundOutputNumber(item.value),
         prominence: roundOutputNumber(item.prominence),
-        gridIndex: item.gridIndex,
-        i: item.i,
-        j: item.j,
       },
       geometry: {
         type: "Point",
