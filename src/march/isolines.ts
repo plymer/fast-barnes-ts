@@ -1,9 +1,12 @@
 import type { Feature, LineString } from "geojson";
 import { barnes } from "../barnes.js";
-import { getBarnesParams } from "../helpers.js";
+import { getBarnesParams, lonLatToWebMercator } from "../helpers.js";
 import type { Tuple2DWithValue, BarnesOptions, GridExtremaOptions2D } from "../types.js";
 import { marchingSquares, type PolylinesWithLevels, type Point } from "./march.js";
-import { getExtremaAsGeoJson } from "../extrema/index.js";
+import { getExtremaAsGeoJson, getExtremaLocations } from "../extrema/index.js";
+
+export type LineGeometryData = { value: number; geometry: string };
+export type ExtremaGeometryData = { field: string; kind: "max" | "min"; geometry: string; value: number };
 
 export function convertToGeographicCoordinates(
   lines: Point[],
@@ -65,6 +68,50 @@ export function tupleArrayToGeoJson(
     : [];
 
   return { features: [...lines, ...extrema], type: "FeatureCollection" };
+}
+
+/**
+ * Convert a 2-D array of points into WKT geometries for isolines and extrema points
+ * @param tupleData Tuple2DWithValue array (lng, lat, value) to interpolate and extract isolines from
+ * @param fieldName The name of the data field you are interpolating
+ * @param options Specify the step between thresholds (e.g. 5 degrees C), the sigma for the Barnes interpolation, the resolution of the grid, and any custom Barnes options, and whether you want to extract extrema points from the grid (with optional extremaOptions object)
+ * @returns An object containing the line data and extrema point data in geometries in WKT format, along with their corresponding values and field names
+ */
+export function tupleArrayToWKTGeometries(
+  tupleData: Tuple2DWithValue[],
+  fieldName: string,
+  options: {
+    thresholdStep: number;
+    sigma: number | readonly number[];
+    resolution: [number, number];
+    barnesOptions?: BarnesOptions;
+    extrema?: boolean;
+    extremaOptions?: GridExtremaOptions2D;
+  },
+): { lineData: LineGeometryData[]; extremaPointData: ExtremaGeometryData[] } {
+  const { barnesParams, barnesResult, ...marched } = generateMarchedIsolines(tupleData, options);
+
+  const lineData = marched.polylines.map((line, idx) => {
+    const coords = line.map(([lon, lat]) => {
+      const { x, y } = lonLatToWebMercator(lon, lat);
+      return `${x} ${y}`;
+    });
+
+    const value = getIsolineThreshold(marched, idx);
+
+    return { value, geometry: `LINESTRING(${coords.join(",")})` };
+  });
+
+  const extremaPointData = getExtremaLocations(
+    fieldName,
+    barnesResult,
+    barnesParams.x0,
+    barnesParams.step,
+    options.extremaOptions ?? {},
+    barnesParams.unproject,
+  );
+
+  return { lineData, extremaPointData };
 }
 
 /**

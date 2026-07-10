@@ -1,5 +1,5 @@
 import type { Feature, Point } from "geojson";
-import type { getBarnesParams } from "../helpers";
+import { lonLatToWebMercator, type getBarnesParams } from "../helpers";
 import type { BarnesResult, GridExtremaKind, GridExtremaOptions2D, GridExtremaPoint2D, ScalarOrVector } from "../types";
 
 /**
@@ -245,13 +245,20 @@ export function getExtremaLocations(
   step: ScalarOrVector,
   options: GridExtremaOptions2D = {},
   projectionFn: ReturnType<typeof getBarnesParams>["unproject"],
-): { field: string; kind: GridExtremaKind; lng: number; lat: number; value: number }[] {
+): { field: string; kind: GridExtremaKind; geometry: string; value: number }[] {
   const extrema = findGridExtrema2D(grid, x0, step, options);
-  return extrema.map((e) => ({
-    field,
-    kind: e.kind,
-    lng: projectionFn(e.x, e.y)[0],
-    lat: projectionFn(e.x, e.y)[1],
-    value: e.value,
-  }));
+
+  return extrema.map((e) => {
+    const { x, y, value, kind } = e;
+    const [lng, lat] = projectionFn(x, y);
+    const { x: mx, y: my } = lonLatToWebMercator(lng, lat);
+    const geometry = `POINT(${mx} ${my})`;
+
+    return {
+      field,
+      kind,
+      geometry,
+      value,
+    };
+  });
 }

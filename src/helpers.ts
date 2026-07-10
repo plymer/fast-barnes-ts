@@ -20,6 +20,14 @@ export interface BarnesGridParams2D {
   size: [number, number];
 }
 
+export const lonLatToWebMercator = (lon: number, lat: number) => {
+  const clampedLat = Math.max(Math.min(lat, 85.05112878), -85.05112878);
+  const x = (lon * 20037508.34) / 180;
+  const y = (Math.log(Math.tan(((90 + clampedLat) * Math.PI) / 360)) / (Math.PI / 180)) * (20037508.34 / 180);
+
+  return { x, y };
+};
+
 export interface SphericalBarnesParams2D extends BarnesGridParams2D {
   projection: LambertProjectionParams;
   project: (lon: number, lat: number) => [number, number];
