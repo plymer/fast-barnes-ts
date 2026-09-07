@@ -1,11 +1,4 @@
-import type {
-  BarnesResult,
-  CoordinateMode,
-  GeoJSONSphericalOptions,
-  GridContourOptions,
-  LambertProjectionParams,
-  Tuple2DWithValue,
-} from "./types";
+import type { BarnesResult, GridContourOptions, LambertProjectionParams, Tuple2DWithValue } from "./types";
 import {
   createLambertProjection,
   getPointBounds,
@@ -126,94 +119,51 @@ export function normalizeResolution(resolution: number | readonly [number, numbe
 export function getBarnesParams(
   tupleData: Tuple2DWithValue[],
   options: {
-    mode: "euclidean";
     resolution: number | [number, number];
     padding?: number;
   },
-): BarnesGridParams2D;
-export function getBarnesParams(
-  tupleData: Tuple2DWithValue[],
-  options: {
-    mode: "spherical";
-    resolution: number | [number, number];
-    padding?: number;
-    sphericalOptions?: GeoJSONSphericalOptions;
-  },
-): SphericalBarnesParams2D;
-export function getBarnesParams(
-  tupleData: Tuple2DWithValue[],
-  options: {
-    mode: CoordinateMode;
-    resolution: number | [number, number];
-    padding?: number;
-    sphericalOptions?: GeoJSONSphericalOptions;
-  },
-): BarnesGridParams2D | SphericalBarnesParams2D {
+): SphericalBarnesParams2D {
   if (tupleData.length === 0) {
     throw new Error("Cannot derive Barnes params from empty tupleData");
   }
 
-  switch (options.mode) {
-    case "euclidean": {
-      const padding = options.padding ?? 0.05;
+  validateSphericalCoordinates(tupleData);
 
-      const bounds = tupleData.reduce<[number, number, number, number]>(
-        (acc, d) => {
-          return [Math.min(acc[0], d[0]), Math.min(acc[1], d[1]), Math.max(acc[2], d[0]), Math.max(acc[3], d[1])];
-        },
-        [Infinity, Infinity, -Infinity, -Infinity],
-      );
+  const size = normalizeResolution(options.resolution);
+  const points = tupleData.map(([lon, lat]) => [lon, lat]);
+  const projection = createLambertProjection(points);
 
-      const x0: [number, number] = [bounds[0] - padding, bounds[1] - padding];
-
-      const size = normalizeResolution(options.resolution);
-
-      const spanX = bounds[2] + padding - x0[0];
-      const spanY = bounds[3] + padding - x0[1];
-      const step: [number, number] = [spanX / Math.max(1, size[0] - 1), spanY / Math.max(1, size[1] - 1)];
-
-      return { x0, step, size };
-    }
-    case "spherical": {
-      validateSphericalCoordinates(tupleData);
-
-      const size = normalizeResolution(options.resolution);
-      const points = tupleData.map(([lon, lat]) => [lon, lat]);
-      const projection = createLambertProjection(points, options.sphericalOptions);
-
-      const mappedPoints = points.map((p) => lambertToMap(projection, p[0], p[1]));
-      const bounds = getPointBounds(mappedPoints);
-      if (!bounds) {
-        throw new Error("Cannot derive projected bounds from empty tupleData");
-      }
-
-      const padding = options.sphericalOptions?.lambertPadding ?? options.padding ?? 0.05;
-      if (!(padding >= 0)) {
-        throw new Error(`lambertPadding/padding must be >= 0, got ${padding}`);
-      }
-
-      const extentX = bounds.maxX - bounds.minX;
-      const extentY = bounds.maxY - bounds.minY;
-      const padX = extentX > 0 ? extentX * padding : 1;
-      const padY = extentY > 0 ? extentY * padding : 1;
-
-      const x0: [number, number] = [bounds.minX - padX, bounds.minY - padY];
-      const spanX = bounds.maxX + padX - x0[0];
-      const spanY = bounds.maxY + padY - x0[1];
-      const step: [number, number] = [spanX / Math.max(1, size[0] - 1), spanY / Math.max(1, size[1] - 1)];
-
-      return {
-        x0,
-        step,
-        size,
-        projection,
-        project: (lon: number, lat: number): [number, number] => {
-          return lambertToMap(projection, lon, lat);
-        },
-        unproject: (mapX: number, mapY: number): [number, number] => {
-          return lambertToGeo(projection, mapX, mapY);
-        },
-      };
-    }
+  const mappedPoints = points.map((p) => lambertToMap(projection, p[0], p[1]));
+  const bounds = getPointBounds(mappedPoints);
+  if (!bounds) {
+    throw new Error("Cannot derive projected bounds from empty tupleData");
   }
+
+  const padding = options.padding ?? 0.05;
+  if (!(padding >= 0)) {
+    throw new Error(`lambertPadding/padding must be >= 0, got ${padding}`);
+  }
+
+  const extentX = bounds.maxX - bounds.minX;
+  const extentY = bounds.maxY - bounds.minY;
+  const padX = extentX > 0 ? extentX * padding : 1;
+  const padY = extentY > 0 ? extentY * padding : 1;
+
+  const x0: [number, number] = [bounds.minX - padX, bounds.minY - padY];
+  const spanX = bounds.maxX + padX - x0[0];
+  const spanY = bounds.maxY + padY - x0[1];
+  const step: [number, number] = [spanX / Math.max(1, size[0] - 1), spanY / Math.max(1, size[1] - 1)];
+
+  return {
+    x0,
+    step,
+    size,
+    projection,
+    project: (lon: number, lat: number): [number, number] => {
+      return lambertToMap(projection, lon, lat);
+    },
+    unproject: (mapX: number, mapY: number): [number, number] => {
+      return lambertToGeo(projection, mapX, mapY);
+    },
+  };
 }

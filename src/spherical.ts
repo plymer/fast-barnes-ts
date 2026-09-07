@@ -1,4 +1,4 @@
-import type { GeoJSONSphericalOptions, LambertProjectionParams } from "./types";
+import type { LambertProjectionParams } from "./types";
 
 const RAD_PER_DEGREE = Math.PI / 180.0;
 const HALF_RAD_PER_DEGREE = RAD_PER_DEGREE / 2.0;
@@ -32,24 +32,21 @@ export function validateSphericalCoordinates(points: ReadonlyArray<ReadonlyArray
   }
 }
 
-export function createLambertProjection(
-  points: number[][],
-  options: GeoJSONSphericalOptions | undefined,
-): LambertProjectionParams {
+export function createLambertProjection(points: number[][]): LambertProjectionParams {
   const bounds = getPointBounds(points);
   if (!bounds) {
     throw new Error("Cannot determine projection bounds from empty points");
   }
 
-  const centerLon = options?.center?.[0] ?? (bounds.minX + bounds.maxX) / 2;
-  const centerLat = options?.center?.[1] ?? (bounds.minY + bounds.maxY) / 2;
+  const centerLon = (bounds.minX + bounds.maxX) / 2;
+  const centerLat = (bounds.minY + bounds.maxY) / 2;
 
   const spanLat = Math.max(0.1, bounds.maxY - bounds.minY);
   const lat1Default = bounds.minY + spanLat * 0.25;
   const lat2Default = bounds.minY + spanLat * 0.75;
 
-  let lat1 = options?.standardParallels?.[0] ?? lat1Default;
-  let lat2 = options?.standardParallels?.[1] ?? lat2Default;
+  let lat1 = lat1Default;
+  let lat2 = lat2Default;
 
   lat1 = Math.max(-89.0, Math.min(89.0, lat1));
   lat2 = Math.max(-89.0, Math.min(89.0, lat2));

@@ -130,9 +130,7 @@ export function generateMarchedIsolines(
   },
 ) {
   const barnesParams = getBarnesParams(tupleData, {
-    mode: "spherical",
     resolution: options.resolution,
-    sphericalOptions: { standardParallels: [42.5, 65.5] },
   });
 
   if (!barnesParams) {

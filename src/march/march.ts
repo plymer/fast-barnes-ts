@@ -66,7 +66,6 @@ const ambiguousCase10Below: EdgeCodeSegments = [
 ] as const;
 
 const isAboveThreshold = (value: number, threshold: number) => value > threshold + thresholdEpsilon;
-const isFiniteNumber = (value: number) => Number.isFinite(value);
 
 function interpolateT(a: number, b: number, threshold: number) {
   if (a === b) return 0.5;
@@ -188,10 +187,10 @@ function computeCaseIdentities(field: ScalarField, threshold: number) {
 
       // Treat invalid/no-data corners as outside the contour domain for this cell.
       if (
-        !isFiniteNumber(topLeftValue) ||
-        !isFiniteNumber(topRightValue) ||
-        !isFiniteNumber(bottomRightValue) ||
-        !isFiniteNumber(bottomLeftValue)
+        !Number.isFinite(topLeftValue) ||
+        !Number.isFinite(topRightValue) ||
+        !Number.isFinite(bottomRightValue) ||
+        !Number.isFinite(bottomLeftValue)
       ) {
         caseGrid[y * cellXDim + x] = 0;
         continue;

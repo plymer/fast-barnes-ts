@@ -1,7 +1,5 @@
 export type BarnesMethod = "optimized_convolution" | "convolution" | "naive";
 
-export type CoordinateMode = "euclidean" | "spherical";
-
 export interface BarnesOptions {
   method?: BarnesMethod;
   numIter?: number;
@@ -53,12 +51,6 @@ export interface GridContourOptions {
   maskThreshold?: number;
 }
 
-export interface GeoJSONSphericalOptions {
-  center?: readonly [number, number];
-  standardParallels?: readonly [number, number];
-  lambertPadding?: number;
-}
-
 export interface LambertProjectionParams {
   centerLon: number;
   centerLat: number;
@@ -66,21 +58,4 @@ export interface LambertProjectionParams {
   nInv: number;
   f: number;
   rho0: number;
-}
-
-export type GeoJSONInterpolationMode = "isobands" | "isolines";
-
-export interface InterpolateGeoJSONOptions {
-  debug?: boolean;
-  coordinateMode?: CoordinateMode;
-  sigma?: ScalarOrVector;
-  x0?: ScalarOrVector;
-  step?: ScalarOrVector;
-  size?: SizeInput;
-  resolution?: number | readonly [number, number];
-  padding?: number;
-  barnesOptions?: BarnesOptions;
-  extrema?: boolean | GridExtremaOptions2D;
-  sphericalOptions?: GeoJSONSphericalOptions;
-  contourOptions: GridContourOptions;
 }

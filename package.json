@@ -63,11 +63,7 @@
     "test": "vitest run",
     "test:watch": "vitest"
   },
-  "dependencies": {
-    "d3-contour": "^4.0.2"
-  },
   "devDependencies": {
-    "@types/d3-contour": "^3.0.6",
     "@types/geojson": "^7946.0.16",
     "oxfmt": "^0.57.0",
     "oxlint": "^1.72.0",

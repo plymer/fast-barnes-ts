@@ -216,6 +216,15 @@ function normalize2DVectorForExtrema(value: ScalarOrVector, name: string): [numb
   return [x, y];
 }
 
+/**
+ * Get a GeoJSON representation of the extrema points
+ * @param grid the result of a Barnes interpolation
+ * @param x0 the southwest origin of the interpolation grid
+ * @param step the grid spacing in each dimension
+ * @param options options for finding grid extrema
+ * @param projectionFn a function to project data-space coordinates to geographic coordinates
+ * @returns an array of GeoJSON point features representing the extrema
+ */
 export function getExtremaAsGeoJson(
   grid: BarnesResult,
   x0: ScalarOrVector,
@@ -237,15 +246,22 @@ export function getExtremaAsGeoJson(
     },
   }));
 }
-
+/**
+ * Get a list of extrema locations with geographic coordinates
+ * @param grid the result of a Barnes interpolation
+ * @param x0 the southwest origin of the interpolation grid
+ * @param step the grid spacing in each dimension
+ * @param options options for finding grid extrema
+ * @param projectionFn a function to project data-space coordinates to geographic coordinates
+ * @returns an array of objects representing the extrema locations in WKT format
+ */
 export function getExtremaLocations(
-  field: string,
   grid: BarnesResult,
   x0: ScalarOrVector,
   step: ScalarOrVector,
   options: GridExtremaOptions2D = {},
   projectionFn: ReturnType<typeof getBarnesParams>["unproject"],
-): { field: string; kind: GridExtremaKind; geometry: string; value: number }[] {
+): { kind: GridExtremaKind; geometry: string; value: number }[] {
   const extrema = findGridExtrema2D(grid, x0, step, options);
 
   return extrema.map((e) => {
@@ -255,7 +271,6 @@ export function getExtremaLocations(
     const geometry = `POINT(${mx} ${my})`;
 
     return {
-      field,
       kind,
       geometry,
       value,

@@ -6,14 +6,7 @@ export {
   getTailValue,
   toNestedArray,
 } from "./barnes";
-export {
-  geoJSONtoGeoJSON,
-  gridExtremaToGeoJSON,
-  gridToIsobandsGeoJSON,
-  gridToIsolinesGeoJSON,
-  samplesFromGeoJSON,
-  tupleArrayToGeoJSON,
-} from "./geojson";
+
 export {
   get2DTupleDataProfile,
   getBarnesParams,
@@ -30,10 +23,7 @@ export type {
   GridExtremaKind,
   GridExtremaOptions2D,
   GridExtremaPoint2D,
-  GeoJSONInterpolationMode,
-  GeoJSONSphericalOptions,
   GridContourOptions,
-  InterpolateGeoJSONOptions,
   LambertProjectionParams,
   PointInput,
   ScalarOrVector,
