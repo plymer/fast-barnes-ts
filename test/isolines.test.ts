@@ -96,7 +96,6 @@ describe("march/isolines", () => {
     mocks.getExtremaAsGeoJson.mockReturnValue([extremaGeoJson]);
     mocks.getExtremaLocations.mockReturnValue([
       {
-        field: "temp",
         kind: "max",
         geometry: "POINT(1000 2000)",
         value: 999,
@@ -137,9 +136,7 @@ describe("march/isolines", () => {
     });
 
     expect(mocks.getBarnesParams).toHaveBeenCalledWith(tupleData, {
-      mode: "spherical",
       resolution: [64, 64],
-      sphericalOptions: { standardParallels: [42.5, 65.5] },
     });
 
     expect(mocks.barnes).toHaveBeenCalledWith(
@@ -269,7 +266,7 @@ describe("march/isolines", () => {
   });
 
   it("tupleArrayToWKTGeometries converts lines and includes extrema point data", () => {
-    const result = tupleArrayToWKTGeometries(tupleData, "temp", {
+    const result = tupleArrayToWKTGeometries(tupleData, {
       thresholdStep: 5,
       sigma: 1,
       resolution: [64, 64],
@@ -288,7 +285,6 @@ describe("march/isolines", () => {
     ]);
 
     expect(mocks.getExtremaLocations).toHaveBeenCalledWith(
-      "temp",
       {
         data: expect.any(Float32Array),
         shape: [3, 3],
@@ -302,7 +298,6 @@ describe("march/isolines", () => {
 
     expect(result.extremaPointData).toEqual([
       {
-        field: "temp",
         kind: "max",
         geometry: "POINT(1000 2000)",
         value: 999,

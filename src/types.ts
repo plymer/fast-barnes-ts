@@ -32,8 +32,6 @@ export interface GridExtremaOptions2D {
   maxCountPerKind?: number;
 }
 
-export type GridExtremaGeoJSONProperties = Pick<GridExtremaPoint2D, "kind" | "value" | "prominence">;
-
 export type PointInput = number[] | ArrayLike<number> | ReadonlyArray<ReadonlyArray<number>>;
 export type ValueInput = ArrayLike<number>;
 export type ScalarOrVector = number | ArrayLike<number>;

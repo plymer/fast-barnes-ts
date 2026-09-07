@@ -19,7 +19,6 @@ export type {
   BarnesMethod,
   BarnesOptions,
   BarnesResult,
-  GridExtremaGeoJSONProperties,
   GridExtremaKind,
   GridExtremaOptions2D,
   GridExtremaPoint2D,

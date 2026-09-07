@@ -6,7 +6,7 @@ import { marchingSquares, type PolylinesWithLevels, type Point } from "./march.j
 import { getExtremaAsGeoJson, getExtremaLocations } from "../extrema/index.js";
 
 export type LineGeometryData = { value: number; geometry: string };
-export type ExtremaGeometryData = { field: string; kind: "max" | "min"; geometry: string; value: number };
+export type ExtremaGeometryData = { kind: "max" | "min"; geometry: string; value: number };
 
 export function convertToGeographicCoordinates(
   lines: Point[],
@@ -79,7 +79,6 @@ export function tupleArrayToGeoJson(
  */
 export function tupleArrayToWKTGeometries(
   tupleData: Tuple2DWithValue[],
-  fieldName: string,
   options: {
     thresholdStep: number;
     sigma: number | readonly number[];
@@ -103,7 +102,6 @@ export function tupleArrayToWKTGeometries(
   });
 
   const extremaPointData = getExtremaLocations(
-    fieldName,
     barnesResult,
     barnesParams.x0,
     barnesParams.step,

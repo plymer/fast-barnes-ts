@@ -1,6 +1,7 @@
 import type { Feature, Point } from "geojson";
-import { lonLatToWebMercator, type getBarnesParams } from "../helpers";
-import type { BarnesResult, GridExtremaKind, GridExtremaOptions2D, GridExtremaPoint2D, ScalarOrVector } from "../types";
+import { lonLatToWebMercator, type getBarnesParams } from "../helpers.js";
+import type { BarnesResult, GridExtremaOptions2D, GridExtremaPoint2D, ScalarOrVector } from "../types.js";
+import type { ExtremaGeometryData } from "../march/isolines.js";
 
 /**
  * Finds local maxima and minima on a 2D interpolation grid.
@@ -261,7 +262,7 @@ export function getExtremaLocations(
   step: ScalarOrVector,
   options: GridExtremaOptions2D = {},
   projectionFn: ReturnType<typeof getBarnesParams>["unproject"],
-): { kind: GridExtremaKind; geometry: string; value: number }[] {
+): ExtremaGeometryData[] {
   const extrema = findGridExtrema2D(grid, x0, step, options);
 
   return extrema.map((e) => {
