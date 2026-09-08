@@ -16,7 +16,7 @@ vi.mock("../src/barnes/index.js", async (importOriginal) => {
 });
 
 vi.mock("../src/helpers.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/helpers.js")>();
+  const actual = await importOriginal<typeof import("../src/barnes/helpers.js")>();
   mocks.getBarnesParams.mockImplementation(actual.getBarnesParams);
   return { ...actual, getBarnesParams: mocks.getBarnesParams };
 });

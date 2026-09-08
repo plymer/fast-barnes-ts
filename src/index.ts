@@ -8,7 +8,7 @@ export {
   buildSpacedThresholds,
   normalizeResolution,
   resolveThresholds,
-} from "./helpers";
+} from "./barnes/helpers";
 
 export type {
   GridContourOptions,

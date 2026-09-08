@@ -1,13 +1,13 @@
 import type { Feature, FeatureCollection, LineString, Position, Point } from "geojson";
-import { barnes } from "../barnes";
 import type { BarnesOptions, SphericalBarnesParams2D } from "../barnes/types";
-import { getBarnesParams } from "../helpers";
-import { type PolylinesWithLevels } from "../march";
-import { computeThresholds } from "../march/isolines";
-import { computePolylines, fieldFromTypedArray, type ScalarField } from "../march/algorithm";
+import type { PolylinesWithLevels, ScalarField } from "../march/types";
 import type { Tuple2DWithValue } from "../types";
-import { findGridExtrema2D } from "../extrema";
 import type { GridExtremaKind, GridExtremaPoint2D } from "../extrema/types";
+import { barnes } from "../barnes";
+import { getBarnesParams } from "../barnes/helpers";
+import { computeThresholds } from "../march/isolines";
+import { computePolylines, fieldFromTypedArray } from "../march/algorithm";
+import { findGridExtrema2D } from "../extrema";
 
 /**
  * Class for performing Barnes interpolation on a set of 2D points with associated values. Provides methods for computing isolines and converting them to different coordinate formats.

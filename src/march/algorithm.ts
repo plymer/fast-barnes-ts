@@ -1,32 +1,9 @@
-export type Edge = "top" | "right" | "bottom" | "left";
-export type SegmentOnCell = [Edge, Edge];
-export type Point = [number, number];
-export type Segment = [Point, Point];
-export type FieldTopology = {
-  x: number;
-  y: number;
-  segments: SegmentOnCell[];
-};
-
-export type PolylinesWithLevels = {
-  polylines: Point[][];
-  levelValues: number[]; // unique thresholds, stored once
-  polylineLevelIndex: Uint8Array;
-};
+import type { Position } from "geojson";
+import type { EdgeCodeSegment, ScalarField, EdgeCode, PolylinesWithLevels } from "./types";
 
 const thresholdEpsilon = 1e-9;
 
-type EdgeCode = 0 | 1 | 2 | 3; // top, right, bottom, left
-type EdgeCodeSegment = readonly [EdgeCode, EdgeCode];
-type EdgeCodeSegments = readonly EdgeCodeSegment[];
-
-export type ScalarField = {
-  xDim: number;
-  yDim: number;
-  get: (x: number, y: number) => number;
-};
-
-const edgeCodes: ReadonlyArray<EdgeCodeSegments | undefined> = [
+const edgeCodes: ReadonlyArray<EdgeCodeSegment[] | undefined> = [
   undefined,
   [[3, 2]],
   [[2, 1]],
@@ -45,22 +22,22 @@ const edgeCodes: ReadonlyArray<EdgeCodeSegments | undefined> = [
   undefined,
 ] as const;
 
-const ambiguousCase5Above: EdgeCodeSegments = [
+const ambiguousCase5Above: EdgeCodeSegment[] = [
   [0, 3],
   [2, 1],
 ] as const;
 
-const ambiguousCase5Below: EdgeCodeSegments = [
+const ambiguousCase5Below: EdgeCodeSegment[] = [
   [0, 1],
   [3, 2],
 ] as const;
 
-const ambiguousCase10Above: EdgeCodeSegments = [
+const ambiguousCase10Above: EdgeCodeSegment[] = [
   [0, 1],
   [3, 2],
 ] as const;
 
-const ambiguousCase10Below: EdgeCodeSegments = [
+const ambiguousCase10Below: EdgeCodeSegment[] = [
   [0, 3],
   [2, 1],
 ] as const;
@@ -156,7 +133,7 @@ function edgeIdToPoint(
     const x = edgeId - y * cellXDim;
     const a = field.get(x, y);
     const b = field.get(x + 1, y);
-    return [x + interpolateT(a, b, threshold), y] as Point;
+    return [x + interpolateT(a, b, threshold), y] as Position;
   }
 
   const localId = edgeId - horizontalEdgeCount;
@@ -164,7 +141,7 @@ function edgeIdToPoint(
   const x = localId - y * xDim;
   const a = field.get(x, y);
   const b = field.get(x, y + 1);
-  return [x, y + interpolateT(a, b, threshold)] as Point;
+  return [x, y + interpolateT(a, b, threshold)] as Position;
 }
 
 function computeSegments(caseIndex: number, x: number, y: number, field: ScalarField, threshold: number) {
@@ -190,7 +167,7 @@ function buildPaddedValidityMask(field: ScalarField): ScalarField {
   return maskField;
 }
 
-export function computeDomainBoundary(field: ScalarField): Point[][] {
+export function computeDomainBoundary(field: ScalarField): Position[][] {
   const maskField = buildPaddedValidityMask(field);
 
   const threshold = 0.5;
@@ -213,7 +190,7 @@ export function computeDomainBoundary(field: ScalarField): Point[][] {
     topologyXDim,
     maskField,
     threshold,
-  ).map((line) => line.map(([x, y]) => [x - 1, y - 1] as Point));
+  ).map((line) => line.map(([x, y]) => [x - 1, y - 1] as Position));
 }
 
 function computeCaseIdentities(field: ScalarField, threshold: number) {
@@ -348,7 +325,7 @@ function generateGeometry(
   const pointY = new Float64Array(endpointCount);
   const pointReady = new Uint8Array(endpointCount);
 
-  const getPoint = (edgeId: number): Point => {
+  const getPoint = (edgeId: number): Position => {
     if (pointReady[edgeId] === 1) return [pointX[edgeId]!, pointY[edgeId]!];
     const [x, y] = edgeIdToPoint(edgeId, horizontalEdgeCount, cellXDim, xDim, field, threshold);
     pointX[edgeId] = x;
@@ -358,10 +335,10 @@ function generateGeometry(
   };
 
   const visited = new Uint8Array(segmentCount);
-  const polylines: Point[][] = [];
+  const polylines: Position[][] = [];
 
   const walkFrom = (startEdgeId: number) => {
-    const line: Point[] = [getPoint(startEdgeId)];
+    const line: Position[] = [getPoint(startEdgeId)];
     let currentEdgeId = startEdgeId;
 
     while (true) {
@@ -401,7 +378,7 @@ function generateGeometry(
 }
 
 export function computePolylines(thresholds: number[], field: ScalarField) {
-  const allPolylines: Point[][] = [];
+  const allPolylines: Position[][] = [];
   const levelIndexBuffer: number[] = [];
 
   if (thresholds.length > 255) {
@@ -450,13 +427,11 @@ export function marchingSquares(thresholds: number[], grid: number[][]): Polylin
 export function marchingSquares(
   thresholds: number[],
   typedArray: Float32Array,
-
   shape: [number, number],
 ): PolylinesWithLevels;
 export function marchingSquares(
   thresholds: number[],
   data: number[][] | Float32Array,
-
   shape?: [number, number],
 ): PolylinesWithLevels {
   if (data instanceof Float32Array) {

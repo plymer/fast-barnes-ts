@@ -1,10 +1,1 @@
-export { getIsolineThreshold } from "./isolines.js";
-export {
-  marchingSquares,
-  type Edge,
-  type FieldTopology,
-  type Segment,
-  type SegmentOnCell,
-  type PolylinesWithLevels,
-  type Point,
-} from "./algorithm.js";
+export { marchingSquares } from "./algorithm.js";
