@@ -7,6 +7,7 @@ import { getBarnesParams } from "../barnes/helpers";
 import { computeThresholds } from "../march/isolines";
 import { computePolylines, fieldFromTypedArray } from "../march";
 import { findGridExtrema2D } from "../extrema";
+import { getIsolineThreshold } from "../march/helpers";
 
 /**
  * Class for performing Barnes interpolation on a set of 2D points with associated values. Provides methods for computing isolines and converting them to different coordinate formats.
@@ -90,10 +91,6 @@ export class BarnesInterpolation {
     });
   }
 
-  private getIsolineThreshold(polylines: PolylinesWithLevels, index: number) {
-    return polylines.levelValues[polylines.polylineLevelIndex[index]!];
-  }
-
   public computeIsolines(thresholdStep: number) {
     this.thresholdStep = thresholdStep;
     this.thresholds = computeThresholds(this.tupleData, this.thresholdStep);
@@ -126,7 +123,7 @@ export class BarnesInterpolation {
         if (!polylineOutput.polylines) throw new Error("No isolines have been computed.");
         const lines = polylineOutput.polylines.map((line, idx) => {
           return {
-            value: this.getIsolineThreshold(this.polylines!, idx),
+            value: getIsolineThreshold(this.polylines!, idx),
             geometry: `LINESTRING(${line.map(([lon, lat]) => `${lon} ${lat}`).join(",")})`,
           };
         });
@@ -146,7 +143,7 @@ export class BarnesInterpolation {
             coordinates: line,
           },
           properties: {
-            value: this.getIsolineThreshold(this.polylines!, idx),
+            value: getIsolineThreshold(this.polylines!, idx),
           },
         }));
 
