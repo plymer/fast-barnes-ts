@@ -1,8 +1,8 @@
 import type { Position } from "geojson";
-import type { PolylinesWithLevels } from "./types";
+import type { PolygonsWithLevels, PolylinesWithLevels } from "./types";
 
-export function getIsolineThreshold(polylines: PolylinesWithLevels, index: number) {
-  return polylines.levelValues[polylines.polylineLevelIndex[index]!];
+export function getThresholdValue(features: PolylinesWithLevels | PolygonsWithLevels, index: number) {
+  return features.levelValues[features.levelIndex[index]!];
 }
 
 // Shoelace formula; ring is expected closed (first point repeated as last).

@@ -1,13 +1,14 @@
-import type { Feature, FeatureCollection, LineString, Position, Point } from "geojson";
+import type { Feature, FeatureCollection, LineString, Position, Point, Polygon } from "geojson";
 import type { BarnesOptions, SphericalBarnesParams2D, Tuple2DWithValue } from "../barnes/types";
-import type { PolylinesWithLevels, ScalarField } from "../march/types";
+import type { PolygonsWithLevels, PolylinesWithLevels, ScalarField } from "../march/types";
 import type { GridExtremaKind, GridExtremaPoint2D } from "../extrema/types";
 import { barnes } from "../barnes";
 import { getBarnesParams } from "../barnes/helpers";
 import { computeThresholds } from "../march/isolines";
 import { computeDomainBoundary, computePolylines, fieldFromTypedArray } from "../march";
 import { findGridExtrema2D } from "../extrema";
-import { getIsolineThreshold } from "../march/helpers";
+import { getThresholdValue } from "../march/helpers";
+import { generateIsoareas } from "../march/isoareas";
 
 /**
  * Class for performing Barnes interpolation on a set of 2D points with associated values. Provides methods for computing isolines and converting them to different coordinate formats.
@@ -36,6 +37,7 @@ export class BarnesInterpolation {
   thresholdStep: number | undefined;
   thresholds: number[] | undefined;
   polylines: PolylinesWithLevels | undefined;
+  contourBands: PolygonsWithLevels | undefined;
   field: ScalarField;
   extrema: GridExtremaPoint2D[] | undefined;
   boundaries: Position[][] | undefined;
@@ -124,7 +126,7 @@ export class BarnesInterpolation {
         if (!polylineOutput.polylines) throw new Error("No isolines have been computed.");
         const lines = polylineOutput.polylines.map((line, idx) => {
           return {
-            value: getIsolineThreshold(this.polylines!, idx),
+            value: getThresholdValue(this.polylines!, idx),
             geometry: `LINESTRING(${line.map(([lon, lat]) => `${lon} ${lat}`).join(",")})`,
           };
         });
@@ -144,7 +146,7 @@ export class BarnesInterpolation {
             coordinates: line,
           },
           properties: {
-            value: getIsolineThreshold(this.polylines!, idx),
+            value: getThresholdValue(this.polylines!, idx),
           },
         }));
 
@@ -153,7 +155,7 @@ export class BarnesInterpolation {
     }
   }
 
-  public generateIsoareas(thresholdStep?: number) {
+  public computeIsoareas(thresholdStep?: number) {
     // if no threshold step is provided, use the default value
     const threshold = thresholdStep ?? this.thresholdStep;
 
@@ -162,6 +164,47 @@ export class BarnesInterpolation {
     // generate the boundary isolines
 
     this.boundaries = computeDomainBoundary(this.field);
+
+    this.contourBands = generateIsoareas(this.polylines!, this.boundaries!, { thresholdStep: threshold });
+  }
+
+  public getIsoareas(format: "wkt"): { value: number; geometry: string }[];
+  public getIsoareas(format: "geojson"): FeatureCollection<Polygon>;
+  public getIsoareas(
+    format: "wkt" | "geojson" = "wkt",
+  ): { value: number; geometry: string }[] | FeatureCollection<Polygon> {
+    if (!this.contourBands) throw new Error("No isoareas have been computed.");
+
+    switch (format) {
+      case "wkt": {
+        const isoareas = this.contourBands!;
+
+        // need to project the coordinates of the polygons into Web Mercator
+
+        const areas = this.contourBands.polygons.map((polygon, idx) => ({
+          value: getThresholdValue(isoareas, idx),
+          geometry: `POLYGON((${polygon[0]!.map(([lon, lat]) => `${lon} ${lat}`).join(",")}))`,
+        }));
+        return areas;
+      }
+      case "geojson": {
+        const isoareas = this.contourBands!;
+
+        // need to project the coordinates of the polygons into WGS84
+
+        const features: Feature<Polygon, { value: number }>[] = this.contourBands.polygons.map((polygon, idx) => ({
+          type: "Feature",
+          geometry: {
+            type: "Polygon",
+            coordinates: polygon,
+          },
+          properties: {
+            value: getThresholdValue(isoareas, idx),
+          },
+        }));
+        return { features, type: "FeatureCollection" };
+      }
+    }
   }
 
   public computeExtrema() {

@@ -377,7 +377,7 @@ function generateGeometry(
   return polylines;
 }
 
-export function computePolylines(thresholds: number[], field: ScalarField) {
+export function computePolylines(thresholds: number[], field: ScalarField): PolylinesWithLevels {
   const allPolylines: Position[][] = [];
   const levelIndexBuffer: number[] = [];
 
@@ -419,7 +419,7 @@ export function computePolylines(thresholds: number[], field: ScalarField) {
   return {
     polylines: allPolylines,
     levelValues: thresholds.slice(),
-    polylineLevelIndex: Uint8Array.from(levelIndexBuffer),
+    levelIndex: Uint8Array.from(levelIndexBuffer),
   };
 }
 

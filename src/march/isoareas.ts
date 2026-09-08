@@ -33,7 +33,7 @@ function closestBoundaryLocation(point: Position, boundaries: Position[][]) {
 // boundary forward from the exit point to the entry point. Closed polylines pass through unchanged.
 function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][]): Ring[] {
   return polylines.polylines.map((line, i) => {
-    const levelIndex = polylines.polylineLevelIndex[i]!;
+    const levelIndex = polylines.levelIndex[i]!;
     const first = line[0]!;
     const last = line[line.length - 1]!;
 
@@ -150,7 +150,7 @@ function assembleBands(
     bandLevelIndex.push(level);
   }
 
-  return { polygons, bandLevelIndex: Uint8Array.from(bandLevelIndex) };
+  return { polygons, levelIndex: Uint8Array.from(bandLevelIndex) };
 }
 
 export function generateIsoareas(
@@ -160,17 +160,11 @@ export function generateIsoareas(
 ): PolygonsWithLevels {
   const rings = closePolylines(polylines, boundaries);
   const ringPoints = finalizeRingPoints(rings);
-  const levelIndices = polylines.polylineLevelIndex;
+  const levelIndices = polylines.levelIndex;
 
   const { parent, children } = buildContainmentForest(ringPoints);
   const ascending = classifyAscending(levelIndices, parent);
-  const { polygons, bandLevelIndex } = assembleBands(
-    ringPoints,
-    levelIndices,
-    children,
-    ascending,
-    polylines.levelValues,
-  );
+  const { polygons, levelIndex } = assembleBands(ringPoints, levelIndices, children, ascending, polylines.levelValues);
 
-  return { polygons, levelValues: polylines.levelValues, bandLevelIndex };
+  return { polygons, levelValues: polylines.levelValues, levelIndex };
 }

@@ -12,13 +12,13 @@ export type FieldTopology = {
 export type PolylinesWithLevels = {
   polylines: Position[][];
   levelValues: number[]; // unique thresholds, stored once
-  polylineLevelIndex: Uint8Array;
+  levelIndex: Uint8Array;
 };
 
 export type PolygonsWithLevels = {
   polygons: Position[][][]; // each polygon = [exteriorRing, ...holeRings]
   levelValues: number[]; // same thresholds as the source PolylinesWithLevels
-  bandLevelIndex: Uint8Array; // index i => band spans [levelValues[i], levelValues[i + 1]]
+  levelIndex: Uint8Array; // index i => band spans [levelValues[i], levelValues[i + 1]]
 };
 
 export type EdgeCode = 0 | 1 | 2 | 3; // top, right, bottom, left
