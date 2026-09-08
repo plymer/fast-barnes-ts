@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   getExtremaLocations: vi.fn(),
 }));
 
-vi.mock("../src/barnes.js", () => ({
+vi.mock("../src/barnes/index.js", () => ({
   barnes: mocks.barnes,
 }));
 

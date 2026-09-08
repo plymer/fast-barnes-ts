@@ -1,17 +1,12 @@
-import type { BarnesResult, GridContourOptions, LambertProjectionParams, Tuple2DWithValue } from "./types";
+import type { GridContourOptions, Tuple2DWithValue } from "./types";
 import {
   createLambertProjection,
   getPointBounds,
   lambertToGeo,
   lambertToMap,
   validateSphericalCoordinates,
-} from "./spherical";
-
-export interface BarnesGridParams2D {
-  x0: [number, number];
-  step: [number, number];
-  size: [number, number];
-}
+} from "./barnes/spherical";
+import type { BarnesResult, SphericalBarnesParams2D } from "./barnes/types";
 
 export const lonLatToWebMercator = (lon: number, lat: number) => {
   const clampedLat = Math.max(Math.min(lat, 85.05112878), -85.05112878);
@@ -20,12 +15,6 @@ export const lonLatToWebMercator = (lon: number, lat: number) => {
 
   return { x, y };
 };
-
-export interface SphericalBarnesParams2D extends BarnesGridParams2D {
-  projection: LambertProjectionParams;
-  project: (lon: number, lat: number) => [number, number];
-  unproject: (mapX: number, mapY: number) => [number, number];
-}
 
 export function get2DTupleDataProfile(tupleData: Tuple2DWithValue[]) {
   const { bounds, maxValue, minValue } = tupleData.reduce<{

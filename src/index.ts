@@ -1,11 +1,6 @@
-export {
-  barnes,
-  getHalfKernelSize,
-  getHalfKernelSizeOpt,
-  getSigmaEffective,
-  getTailValue,
-  toNestedArray,
-} from "./barnes";
+export * from "./barnes";
+export * from "./barnes/spherical";
+export * from "./barnes/types";
 
 export {
   get2DTupleDataProfile,
@@ -16,14 +11,7 @@ export {
 } from "./helpers";
 
 export type {
-  BarnesMethod,
-  BarnesOptions,
-  BarnesResult,
-  GridExtremaKind,
-  GridExtremaOptions2D,
-  GridExtremaPoint2D,
   GridContourOptions,
-  LambertProjectionParams,
   PointInput,
   ScalarOrVector,
   SizeInput,
@@ -35,4 +23,5 @@ export type {
 } from "./types";
 
 export * from "./extrema";
+export * from "./extrema/types";
 export * from "./march";

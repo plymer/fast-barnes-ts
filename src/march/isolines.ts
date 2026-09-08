@@ -1,9 +1,11 @@
 import type { Feature, LineString } from "geojson";
-import { barnes } from "../barnes.js";
+import { barnes } from "../barnes/index.js";
 import { getBarnesParams, lonLatToWebMercator } from "../helpers.js";
-import type { Tuple2DWithValue, BarnesOptions, GridExtremaOptions2D } from "../types.js";
+import type { Tuple2DWithValue } from "../types.js";
 import { marchingSquares, type PolylinesWithLevels, type Point } from "./march.js";
 import { getExtremaAsGeoJson, getExtremaLocations } from "../extrema/index.js";
+import type { BarnesOptions } from "../barnes/types.js";
+import type { GridExtremaOptions2D } from "../extrema/types.js";
 
 export type LineGeometryData = { value: number; geometry: string };
 export type ExtremaGeometryData = { kind: "max" | "min"; geometry: string; value: number };
