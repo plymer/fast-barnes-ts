@@ -423,15 +423,34 @@ export function computePolylines(thresholds: number[], field: ScalarField) {
   };
 }
 
+/**
+ * Compute the polylines of a scalar field using the marching squares algorithm, over the specified threshold values
+ * @param thresholds an array of numbers to compute isolines along through the dataset
+ * @param grid the data that is being used to compute isolines as a nested array (2D-only)
+ * @returns polylines for the thresholds specified as well as polylines along the boundaries of the data domain and any voids
+ */
 export function marchingSquares(
   thresholds: number[],
   grid: number[][],
 ): { thresholdLines: PolylinesWithLevels; boundaries: Position[][] };
+/**
+ * Compute the polylines of a scalar field using the marching squares algorithm, over the specified threshold values
+ * @param thresholds an array of numbers to compute isolines along through the dataset
+ * @param grid the data that is being used to compute isolines as a Float32Array
+ * @param shape the x and y dimensions (as [number, number]) that describe the grid's size
+ * @returns polylines for the thresholds specified as well as polylines along the boundaries of the data domain and any voids
+ */
 export function marchingSquares(
   thresholds: number[],
   typedArray: Float32Array,
   shape: [number, number],
 ): { thresholdLines: PolylinesWithLevels; boundaries: Position[][] };
+/**
+ * Compute the polylines of a scalar field using the marching squares algorithm, over the specified threshold values
+ * @param thresholds an array of numbers to compute isolines along through the dataset
+ * @param data the data that is being used to compute isolines (either as a nested 2D array or a Float32Array)
+ * @returns polylines for the thresholds specified as well as polylines along the boundaries of the data domain and any voids
+ */
 export function marchingSquares(
   thresholds: number[],
   data: number[][] | Float32Array,
