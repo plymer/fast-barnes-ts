@@ -15,6 +15,12 @@ export type PolylinesWithLevels = {
   polylineLevelIndex: Uint8Array;
 };
 
+export type PolygonsWithLevels = {
+  polygons: Position[][][]; // each polygon = [exteriorRing, ...holeRings]
+  levelValues: number[]; // same thresholds as the source PolylinesWithLevels
+  bandLevelIndex: Uint8Array; // index i => band spans [levelValues[i], levelValues[i + 1]]
+};
+
 export type EdgeCode = 0 | 1 | 2 | 3; // top, right, bottom, left
 export type EdgeCodeSegment = readonly [EdgeCode, EdgeCode];
 
