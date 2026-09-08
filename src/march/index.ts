@@ -1,9 +1,4 @@
-export {
-  generateMarchedIsolines,
-  tupleArrayToGeoJson,
-  getIsolineThreshold,
-  convertToGeographicCoordinates,
-} from "./isolines.js";
+export { getIsolineThreshold, convertToWgs84, convertToWebMercator } from "./isolines.js";
 export {
   marchingSquares,
   type Edge,
@@ -12,4 +7,4 @@ export {
   type SegmentOnCell,
   type PolylinesWithLevels,
   type Point,
-} from "./march.js";
+} from "./algorithm.js";

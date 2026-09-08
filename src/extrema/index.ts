@@ -1,8 +1,6 @@
-import type { Feature, Point } from "geojson";
-import { lonLatToWebMercator, type getBarnesParams } from "../helpers.js";
 import type { ScalarOrVector } from "../types.js";
 import type { GridExtremaOptions2D, GridExtremaPoint2D } from "./types.js";
-import type { ExtremaGeometryData } from "../march/isolines.js";
+
 import type { BarnesResult } from "../barnes/types.js";
 
 /**
@@ -217,66 +215,4 @@ function normalize2DVectorForExtrema(value: ScalarOrVector, name: string): [numb
   }
 
   return [x, y];
-}
-
-/**
- * Get a GeoJSON representation of the extrema points
- * @param grid the result of a Barnes interpolation
- * @param x0 the southwest origin of the interpolation grid
- * @param step the grid spacing in each dimension
- * @param options options for finding grid extrema
- * @param projectionFn a function to project data-space coordinates to geographic coordinates
- * @returns an array of GeoJSON point features representing the extrema
- */
-export function getExtremaAsGeoJson(
-  grid: BarnesResult,
-  x0: ScalarOrVector,
-  step: ScalarOrVector,
-  options: GridExtremaOptions2D = {},
-  projectionFn: ReturnType<typeof getBarnesParams>["unproject"],
-): Feature<Point, { kind: "max" | "min"; value: number }>[] {
-  const extrema = findGridExtrema2D(grid, x0, step, options);
-
-  return extrema.map((e) => ({
-    type: "Feature",
-    geometry: {
-      type: "Point",
-      coordinates: projectionFn(e.x, e.y),
-    },
-    properties: {
-      kind: e.kind,
-      value: e.value,
-    },
-  }));
-}
-/**
- * Get a list of extrema locations with geographic coordinates
- * @param grid the result of a Barnes interpolation
- * @param x0 the southwest origin of the interpolation grid
- * @param step the grid spacing in each dimension
- * @param options options for finding grid extrema
- * @param projectionFn a function to project data-space coordinates to geographic coordinates
- * @returns an array of objects representing the extrema locations in WKT format
- */
-export function getExtremaLocations(
-  grid: BarnesResult,
-  x0: ScalarOrVector,
-  step: ScalarOrVector,
-  options: GridExtremaOptions2D = {},
-  projectionFn: ReturnType<typeof getBarnesParams>["unproject"],
-): ExtremaGeometryData[] {
-  const extrema = findGridExtrema2D(grid, x0, step, options);
-
-  return extrema.map((e) => {
-    const { x, y, value, kind } = e;
-    const [lng, lat] = projectionFn(x, y);
-    const { x: mx, y: my } = lonLatToWebMercator(lng, lat);
-    const geometry = `POINT(${mx} ${my})`;
-
-    return {
-      kind,
-      geometry,
-      value,
-    };
-  });
 }

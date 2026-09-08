@@ -77,12 +77,32 @@ export function createLambertProjection(points: number[][]): LambertProjectionPa
   };
 }
 
+/**
+ * Projects WGS84 geographic coordinates into Lambert Conformal Conic (LCC) planar coordinates
+ * centered on the projection's reference longitude/latitude.
+ *
+ * Note: the output is in degree-scaled planar units (not meters and not a standard CRS like
+ * Web Mercator/EPSG:3857) — it exists to give the Barnes interpolation a locally flat,
+ * regularly-spaced grid to operate on.
+ * @param proj Lambert projection parameters produced by `createLambertProjection`
+ * @param lon Longitude in decimal degrees (WGS84)
+ * @param lat Latitude in decimal degrees (WGS84)
+ * @returns `[x, y]` planar coordinates in the LCC projection's degree-scaled units
+ */
 export function lambertToMap(proj: LambertProjectionParams, lon: number, lat: number): [number, number] {
   const rho = proj.f / Math.tan((90.0 + lat) * HALF_RAD_PER_DEGREE) ** proj.n;
   const arg = proj.n * (lon - proj.centerLon) * RAD_PER_DEGREE;
   return [(rho * Math.sin(arg)) / RAD_PER_DEGREE, (proj.rho0 - rho * Math.cos(arg)) / RAD_PER_DEGREE];
 }
 
+/**
+ * Inverse of `lambertToMap`: converts Lambert Conformal Conic (LCC) planar coordinates
+ * back to WGS84 geographic coordinates.
+ * @param proj Lambert projection parameters produced by `createLambertProjection`
+ * @param mapX Planar x-coordinate in the LCC projection's degree-scaled units
+ * @param mapY Planar y-coordinate in the LCC projection's degree-scaled units
+ * @returns `[lon, lat]` in decimal degrees (WGS84)
+ */
 export function lambertToGeo(proj: LambertProjectionParams, mapX: number, mapY: number): [number, number] {
   const x = mapX * RAD_PER_DEGREE;
   const arg = proj.rho0 - mapY * RAD_PER_DEGREE;
