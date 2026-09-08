@@ -1,17 +1,9 @@
 export * from "./barnes";
 export * from "./barnes/spherical";
 export * from "./barnes/types";
-
-export {
-  get2DTupleDataProfile,
-  getBarnesParams,
-  buildSpacedThresholds,
-  normalizeResolution,
-  resolveThresholds,
-} from "./barnes/helpers";
+export * from "./barnes/helpers";
 
 export type {
-  GridContourOptions,
   PointInput,
   ScalarOrVector,
   SizeInput,

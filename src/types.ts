@@ -7,10 +7,3 @@ export type Tuple1DWithValue = [number, number];
 export type Tuple2DWithValue = [number, number, number];
 export type Tuple3DWithValue = [number, number, number, number];
 export type TupleWithValue = Tuple1DWithValue | Tuple2DWithValue | Tuple3DWithValue;
-
-export interface GridContourOptions {
-  spacing: number;
-  base?: number;
-  smooth?: boolean;
-  maskThreshold?: number;
-}

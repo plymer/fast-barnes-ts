@@ -6,7 +6,7 @@ import type { GridExtremaKind, GridExtremaPoint2D } from "../extrema/types";
 import { barnes } from "../barnes";
 import { getBarnesParams } from "../barnes/helpers";
 import { computeThresholds } from "../march/isolines";
-import { computePolylines, fieldFromTypedArray } from "../march/algorithm";
+import { computePolylines, fieldFromTypedArray } from "../march";
 import { findGridExtrema2D } from "../extrema";
 
 /**
