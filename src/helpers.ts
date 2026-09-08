@@ -2,9 +2,9 @@ import type { GridContourOptions, Tuple2DWithValue } from "./types";
 import {
   createLambertProjection,
   getPointBounds,
-  lambertToGeo,
-  lambertToMap,
   validateSphericalCoordinates,
+  wgs84ToLcc,
+  lccToWgs84,
 } from "./barnes/spherical";
 import type { BarnesResult, SphericalBarnesParams2D } from "./barnes/types";
 
@@ -122,7 +122,7 @@ export function getBarnesParams(
   const points = tupleData.map(([lon, lat]) => [lon, lat]);
   const projection = createLambertProjection(points);
 
-  const mappedPoints = points.map((p) => lambertToMap(projection, p[0], p[1]));
+  const mappedPoints = points.map((p) => wgs84ToLcc(projection, p[0], p[1]));
   const bounds = getPointBounds(mappedPoints);
   if (!bounds) {
     throw new Error("Cannot derive projected bounds from empty tupleData");
@@ -149,10 +149,10 @@ export function getBarnesParams(
     size,
     projection,
     project: (lon: number, lat: number): [number, number] => {
-      return lambertToMap(projection, lon, lat);
+      return wgs84ToLcc(projection, lon, lat);
     },
     unproject: (mapX: number, mapY: number): [number, number] => {
-      return lambertToGeo(projection, mapX, mapY);
+      return lccToWgs84(projection, mapX, mapY);
     },
   };
 }

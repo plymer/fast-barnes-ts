@@ -1,14 +1,30 @@
-import type { Feature, FeatureCollection, LineString, Point } from "geojson";
+import type { Feature, FeatureCollection, LineString, Position, Point } from "geojson";
 import { barnes } from "../barnes";
 import type { BarnesOptions, SphericalBarnesParams2D } from "../barnes/types";
-import { getBarnesParams, lonLatToWebMercator } from "../helpers";
+import { getBarnesParams } from "../helpers";
 import { type PolylinesWithLevels } from "../march";
-import { computeThresholds, convertToWgs84 } from "../march/isolines";
+import { computeThresholds } from "../march/isolines";
 import { computePolylines, fieldFromTypedArray, type ScalarField } from "../march/algorithm";
 import type { Tuple2DWithValue } from "../types";
 import { findGridExtrema2D } from "../extrema";
 import type { GridExtremaKind, GridExtremaPoint2D } from "../extrema/types";
 
+/**
+ * Class for performing Barnes interpolation on a set of 2D points with associated values. Provides methods for computing isolines and converting them to different coordinate formats.
+ *
+ * @example
+ * ```typescript
+ * const interpolation = new BarnesInterpolation(tupleData, {
+ *   resolution: [100, 100],
+ *   sigma: 1.0,
+ *   barnesOptions: { maxDist: 0.5, numIter: 10 },
+ * });
+ * interpolation.computeIsolines(0.1);
+ * interpolation.computeExtrema();
+ * const isolinesWkt = interpolation.getIsolines("wkt");
+ * const extremaGeoJson = interpolation.getExtrema("geojson");
+ * ```
+ */
 export class BarnesInterpolation {
   tupleData: Tuple2DWithValue[];
   barnesData: Float32Array;
@@ -50,6 +66,35 @@ export class BarnesInterpolation {
     this.field = fieldFromTypedArray(data, this.shape[0], this.shape[1]);
   }
 
+  private lonLatToWebMercator(lon: number, lat: number): { x: number; y: number } {
+    const clampedLat = Math.max(Math.min(lat, 85.05112878), -85.05112878);
+    const x = (lon * 20037508.34) / 180;
+    const y = (Math.log(Math.tan(((90 + clampedLat) * Math.PI) / 360)) / (Math.PI / 180)) * (20037508.34 / 180);
+
+    return { x, y };
+  }
+
+  private convertToWgs84(lines: Position[], paddingOffset?: { x: number; y: number }): Position[] {
+    if (!paddingOffset) paddingOffset = { x: 0, y: 0 };
+    return lines.map(([x, y]) =>
+      this.barnesParams.unproject(
+        this.barnesParams.x0[0] + paddingOffset.x + x * this.barnesParams.step[0]!,
+        this.barnesParams.x0[1] + paddingOffset.y + y * this.barnesParams.step[1]!,
+      ),
+    );
+  }
+
+  private convertToWebMercator(lines: Position[], paddingOffset?: { x: number; y: number }): Position[] {
+    return this.convertToWgs84(lines, paddingOffset).map(([lon, lat]) => {
+      const { x, y } = this.lonLatToWebMercator(lon, lat);
+      return [x, y] as Position;
+    });
+  }
+
+  private getIsolineThreshold(polylines: PolylinesWithLevels, index: number) {
+    return polylines.levelValues[polylines.polylineLevelIndex[index]!];
+  }
+
   public computeIsolines(thresholdStep: number) {
     this.thresholdStep = thresholdStep;
     this.thresholds = computeThresholds(this.tupleData, this.thresholdStep);
@@ -71,41 +116,38 @@ export class BarnesInterpolation {
       this.computeIsolines(this.thresholdStep);
     }
 
-    // convert the polyline data into geographic (WGS 84) coordinates
-    const polylineOutput = {
-      ...this.polylines,
-      polylines: this.polylines?.polylines.map((line) =>
-        convertToWgs84(line, this.barnesParams.x0, this.barnesParams.step, this.barnesParams.unproject),
-      ),
-    };
-
     switch (format) {
       case "wkt": {
+        // convert the polyline data into Web Mercator coordinates
+        const polylineOutput = {
+          ...this.polylines,
+          polylines: this.polylines?.polylines.map((line) => this.convertToWebMercator(line)),
+        };
+
         if (!polylineOutput.polylines) throw new Error("No isolines have been computed.");
-        const lineData = polylineOutput.polylines.map((line, idx) => {
-          const coords = line.map(([lon, lat]) => {
-            // since the WKT format expects coordinates in the Web Mercator projection, we convert them here
-            // we couldn't do the conversion from internal Lambert Conformal Conic coordinates directly to
-            // Web Mercator, so we had to do the conversion to WGS 84 and then to Web Mercator
-            const { x, y } = lonLatToWebMercator(lon, lat);
-            return `${x} ${y}`;
-          });
-
-          const value = polylineOutput.levelValues![polylineOutput.polylineLevelIndex![idx]];
-
-          return { value, geometry: `LINESTRING(${coords.join(",")})` };
+        const lines = polylineOutput.polylines.map((line, idx) => {
+          return {
+            value: this.getIsolineThreshold(this.polylines!, idx),
+            geometry: `LINESTRING(${line.map(([lon, lat]) => `${lon} ${lat}`).join(",")})`,
+          };
         });
-        return lineData;
+        return lines;
       }
       case "geojson": {
-        const lines: Feature<LineString>[] = this.polylines!.polylines.map((line, idx) => ({
+        // convert the polyline data into geographic (WGS 84) coordinates
+        const polylineOutput = {
+          ...this.polylines,
+          polylines: this.polylines?.polylines.map((line) => this.convertToWgs84(line)),
+        };
+
+        const lines: Feature<LineString, { value: number }>[] = polylineOutput.polylines!.map((line, idx) => ({
           type: "Feature",
           geometry: {
             type: "LineString",
             coordinates: line,
           },
           properties: {
-            value: this.polylines!.levelValues[this.polylines!.polylineLevelIndex[idx]!],
+            value: this.getIsolineThreshold(this.polylines!, idx),
           },
         }));
 
@@ -143,7 +185,7 @@ export class BarnesInterpolation {
         return this.extrema.map((e) => {
           const { x, y, value, kind } = e;
           const [lng, lat] = this.barnesParams.unproject(x, y);
-          const { x: mx, y: my } = lonLatToWebMercator(lng, lat);
+          const { x: mx, y: my } = this.lonLatToWebMercator(lng, lat);
           const geometry = `POINT(${mx} ${my})`;
 
           return {

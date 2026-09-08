@@ -1,32 +1,5 @@
-import { getBarnesParams, lonLatToWebMercator } from "../helpers.js";
 import type { Tuple2DWithValue } from "../types.js";
-import { type PolylinesWithLevels, type Point } from "./algorithm.js";
-
-export function convertToWgs84(
-  lines: Point[],
-  x0: Point,
-  step: number[],
-  projToWgs84Fn: ReturnType<typeof getBarnesParams>["unproject"],
-  paddingOffset?: { x: number; y: number },
-): Point[] {
-  if (!paddingOffset) paddingOffset = { x: 0, y: 0 };
-  return lines.map((point) =>
-    projToWgs84Fn(x0[0] + paddingOffset.x + point[0] * step[0]!, x0[1] + paddingOffset.y + point[1] * step[1]!),
-  );
-}
-
-export function convertToWebMercator(
-  lines: Point[],
-  x0: Point,
-  step: number[],
-  projToWgs84Fn: ReturnType<typeof getBarnesParams>["unproject"],
-  paddingOffset?: { x: number; y: number },
-): Point[] {
-  return convertToWgs84(lines, x0, step, projToWgs84Fn, paddingOffset).map(([lon, lat]) => {
-    const { x, y } = lonLatToWebMercator(lon, lat);
-    return [x, y] as Point;
-  });
-}
+import type { PolylinesWithLevels } from "./algorithm.js";
 
 /**
  * Extracts the values of the isolines from the polylines data structure

@@ -89,7 +89,7 @@ export function createLambertProjection(points: number[][]): LambertProjectionPa
  * @param lat Latitude in decimal degrees (WGS84)
  * @returns `[x, y]` planar coordinates in the LCC projection's degree-scaled units
  */
-export function lambertToMap(proj: LambertProjectionParams, lon: number, lat: number): [number, number] {
+export function wgs84ToLcc(proj: LambertProjectionParams, lon: number, lat: number): [number, number] {
   const rho = proj.f / Math.tan((90.0 + lat) * HALF_RAD_PER_DEGREE) ** proj.n;
   const arg = proj.n * (lon - proj.centerLon) * RAD_PER_DEGREE;
   return [(rho * Math.sin(arg)) / RAD_PER_DEGREE, (proj.rho0 - rho * Math.cos(arg)) / RAD_PER_DEGREE];
@@ -103,7 +103,7 @@ export function lambertToMap(proj: LambertProjectionParams, lon: number, lat: nu
  * @param mapY Planar y-coordinate in the LCC projection's degree-scaled units
  * @returns `[lon, lat]` in decimal degrees (WGS84)
  */
-export function lambertToGeo(proj: LambertProjectionParams, mapX: number, mapY: number): [number, number] {
+export function lccToWgs84(proj: LambertProjectionParams, mapX: number, mapY: number): [number, number] {
   const x = mapX * RAD_PER_DEGREE;
   const arg = proj.rho0 - mapY * RAD_PER_DEGREE;
   let rho = Math.sqrt(x * x + arg * arg);

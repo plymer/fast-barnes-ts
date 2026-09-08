@@ -1,4 +1,4 @@
-export { getIsolineThreshold, convertToWgs84, convertToWebMercator } from "./isolines.js";
+export { getIsolineThreshold } from "./isolines.js";
 export {
   marchingSquares,
   type Edge,
