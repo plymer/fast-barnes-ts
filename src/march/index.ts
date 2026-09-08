@@ -449,6 +449,7 @@ export function marchingSquares(
  * Compute the polylines of a scalar field using the marching squares algorithm, over the specified threshold values
  * @param thresholds an array of numbers to compute isolines along through the dataset
  * @param data the data that is being used to compute isolines (either as a nested 2D array or a Float32Array)
+ * @param shape the x and y dimensions (as [number, number]) that describe the grid's size, required if data is a Float32Array
  * @returns polylines for the thresholds specified as well as polylines along the boundaries of the data domain and any voids
  */
 export function marchingSquares(
