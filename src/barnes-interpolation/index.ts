@@ -5,7 +5,7 @@ import type { GridExtremaKind, GridExtremaPoint2D } from "../extrema/types";
 import { barnes } from "../barnes";
 import { getBarnesParams } from "../barnes/helpers";
 import { computeThresholds } from "../march/isolines";
-import { computePolylines, fieldFromTypedArray } from "../march";
+import { computeDomainBoundary, computePolylines, fieldFromTypedArray } from "../march";
 import { findGridExtrema2D } from "../extrema";
 import { getIsolineThreshold } from "../march/helpers";
 
@@ -38,6 +38,7 @@ export class BarnesInterpolation {
   polylines: PolylinesWithLevels | undefined;
   field: ScalarField;
   extrema: GridExtremaPoint2D[] | undefined;
+  boundaries: Position[][] | undefined;
 
   constructor(
     tupleData: Tuple2DWithValue[],
@@ -152,13 +153,15 @@ export class BarnesInterpolation {
     }
   }
 
-  public isoareas(format: "wkt" | "geojson", thresholdStep?: number) {
+  public generateIsoareas(thresholdStep?: number) {
     // if no threshold step is provided, use the default value
     const threshold = thresholdStep ?? this.thresholdStep;
 
     if (!threshold) throw new Error("No threshold step was initialized for isoarea generation. Please specify one.");
     // check if thresholded isolines already exist, and then skip generating them
     // generate the boundary isolines
+
+    this.boundaries = computeDomainBoundary(this.field);
   }
 
   public computeExtrema() {
