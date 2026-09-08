@@ -4,7 +4,7 @@ import { getBarnesParams, lonLatToWebMercator } from "../helpers.js";
 import type { Tuple2DWithValue } from "../types.js";
 import { marchingSquares, type PolylinesWithLevels, type Point } from "./march.js";
 import { getExtremaAsGeoJson, getExtremaLocations } from "../extrema/index.js";
-import type { BarnesOptions } from "../barnes/types.js";
+import type { BarnesOptions, BarnesResult } from "../barnes/types.js";
 import type { GridExtremaOptions2D } from "../extrema/types.js";
 
 export type LineGeometryData = { value: number; geometry: string };
@@ -15,8 +15,12 @@ export function convertToGeographicCoordinates(
   x0: Point,
   step: number[],
   projectionFn: ReturnType<typeof getBarnesParams>["unproject"],
+  paddingOffset?: { x: number; y: number },
 ): Point[] {
-  return lines.map((point) => projectionFn(x0[0] + point[0] * step[0]!, x0[1] + point[1] * step[1]!));
+  if (!paddingOffset) paddingOffset = { x: 0, y: 0 };
+  return lines.map((point) =>
+    projectionFn(x0[0] + paddingOffset.x + point[0] * step[0]!, x0[1] + paddingOffset.y + point[1] * step[1]!),
+  );
 }
 
 /**
@@ -41,6 +45,7 @@ export function tupleArrayToGeoJson(
     thresholdStep: number;
     sigma: number | readonly number[];
     resolution: [number, number];
+    computeBoundaries: boolean;
     barnesOptions?: BarnesOptions;
     extrema?: boolean;
     extremaOptions?: GridExtremaOptions2D;
@@ -85,6 +90,7 @@ export function tupleArrayToWKTGeometries(
     thresholdStep: number;
     sigma: number | readonly number[];
     resolution: [number, number];
+    computeBoundaries: boolean;
     barnesOptions?: BarnesOptions;
     extrema?: boolean;
     extremaOptions?: GridExtremaOptions2D;
@@ -126,6 +132,7 @@ export function generateMarchedIsolines(
     thresholdStep: number;
     sigma: number | readonly number[];
     resolution: [number, number];
+    computeBoundaries: boolean;
     barnesOptions?: BarnesOptions;
   },
 ) {
@@ -178,6 +185,26 @@ export function generateMarchedIsolines(
           length: Math.ceil((tupleMinMax.max - tupleMinMax.min) / options.thresholdStep) + 1,
         }).map((_, i) => tupleMinMax.min - (tupleMinMax.min % options.thresholdStep) + i * options.thresholdStep);
 
+  const polylineOutput = marchingSquares(thresholds, data, options.computeBoundaries, shape as [number, number]);
+
+  return {
+    ...polylineOutput,
+    polylines: polylineOutput.polylines.map((line) =>
+      convertToGeographicCoordinates(line, barnesParams.x0, barnesParams.step, barnesParams.unproject),
+    ),
+
+    barnesParams,
+    barnesResult: { data, shape, dimension },
+  };
+}
+
+/**
+ * Generate isolines from a 2-D array of points using Barnes Interpolation and Marching Squares
+ * @param tupleData A 2-D array of points in the format `[lon,lat,value]`
+ * @param options Includes options for `thresholdStep`, `sigma`, `resolution`, and custom `barnesOptions` pertaining for interpolation method, number of iterations, and maximum search distance
+ * @returns a data package containing the polylines (in geographic coordinates), their corresponding threshold values, and the parameters used for the Barnes interpolation
+ */
+export function marchInterpolatedData(data: BarnesResult, thresholds: number[]) {
   const polylineOutput = marchingSquares(thresholds, data, shape as [number, number]);
 
   return {
@@ -185,7 +212,27 @@ export function generateMarchedIsolines(
     polylines: polylineOutput.polylines.map((line) =>
       convertToGeographicCoordinates(line, barnesParams.x0, barnesParams.step, barnesParams.unproject),
     ),
-    barnesParams,
-    barnesResult: { data, shape, dimension },
   };
+}
+
+export function computeThresholds(tupleData: Tuple2DWithValue[], thresholdStep: number) {
+  const tupleMinMax = tupleData.reduce(
+    (acc, tuple) => {
+      const value = tuple[2]!;
+      if (value < acc.min) {
+        acc.min = value;
+      }
+      if (value > acc.max) {
+        acc.max = value;
+      }
+      return acc;
+    },
+    { min: Infinity, max: -Infinity } as { min: number; max: number },
+  );
+
+  return tupleMinMax.min === tupleMinMax.max
+    ? [tupleMinMax.min]
+    : Array.from({
+        length: Math.ceil((tupleMinMax.max - tupleMinMax.min) / thresholdStep) + 1,
+      }).map((_, i) => tupleMinMax.min - (tupleMinMax.min % thresholdStep) + i * thresholdStep);
 }

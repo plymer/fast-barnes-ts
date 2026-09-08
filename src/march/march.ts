@@ -20,7 +20,7 @@ type EdgeCode = 0 | 1 | 2 | 3; // top, right, bottom, left
 type EdgeCodeSegment = readonly [EdgeCode, EdgeCode];
 type EdgeCodeSegments = readonly EdgeCodeSegment[];
 
-type ScalarField = {
+export type ScalarField = {
   xDim: number;
   yDim: number;
   get: (x: number, y: number) => number;
@@ -94,7 +94,7 @@ function fieldFromNestedGrid(grid: number[][]): ScalarField {
   };
 }
 
-function fieldFromTypedArray(data: Float32Array, xDim: number, yDim: number): ScalarField {
+export function fieldFromTypedArray(data: Float32Array, xDim: number, yDim: number): ScalarField {
   assertGridDims(xDim, yDim);
   if (data.length !== xDim * yDim) {
     throw new Error("Float32Array length does not match xDim * yDim");
@@ -170,6 +170,50 @@ function edgeIdToPoint(
 function computeSegments(caseIndex: number, x: number, y: number, field: ScalarField, threshold: number) {
   const isAmbiguous = caseIndex === 5 || caseIndex === 10;
   return isAmbiguous ? resolveSaddle(x, y, caseIndex as 5 | 10, field, threshold) : edgeCodes[caseIndex]!;
+}
+
+function buildPaddedValidityMask(field: ScalarField): ScalarField {
+  const xDim = field.xDim + 2;
+  const yDim = field.yDim + 2;
+  const mask = new Float32Array(xDim * yDim); // defaults to 0 (invalid) padding
+  for (let y = 0; y < field.yDim; y++) {
+    for (let x = 0; x < field.xDim; x++) {
+      mask[(y + 1) * xDim + (x + 1)] = Number.isFinite(field.get(x, y)) ? 1 : 0;
+    }
+  }
+
+  const maskField: ScalarField = {
+    xDim,
+    yDim,
+    get: (x, y) => mask[y * xDim + x]!,
+  };
+  return maskField;
+}
+
+export function computeDomainBoundary(field: ScalarField): Point[][] {
+  const maskField = buildPaddedValidityMask(field);
+
+  const threshold = 0.5;
+  const { caseGrid, cellXDim, cellYDim } = computeCaseIdentities(maskField, threshold);
+  const {
+    edgeA,
+    edgeB,
+    endpointCount,
+    horizontalEdgeCount,
+    xDim: topologyXDim,
+  } = computeTopology(caseGrid, cellXDim, cellYDim, maskField, threshold);
+
+  // undo the 1-cell padding offset so coordinates line up with the original field's index space
+  return generateGeometry(
+    edgeA,
+    edgeB,
+    endpointCount,
+    horizontalEdgeCount,
+    cellXDim,
+    topologyXDim,
+    maskField,
+    threshold,
+  ).map((line) => line.map(([x, y]) => [x - 1, y - 1] as Point));
 }
 
 function computeCaseIdentities(field: ScalarField, threshold: number) {
@@ -356,7 +400,7 @@ function generateGeometry(
   return polylines;
 }
 
-function computePolylines(thresholds: number[], field: ScalarField) {
+export function computePolylines(thresholds: number[], field: ScalarField) {
   const allPolylines: Point[][] = [];
   const levelIndexBuffer: number[] = [];
 
@@ -406,11 +450,13 @@ export function marchingSquares(thresholds: number[], grid: number[][]): Polylin
 export function marchingSquares(
   thresholds: number[],
   typedArray: Float32Array,
+
   shape: [number, number],
 ): PolylinesWithLevels;
 export function marchingSquares(
   thresholds: number[],
   data: number[][] | Float32Array,
+
   shape?: [number, number],
 ): PolylinesWithLevels {
   if (data instanceof Float32Array) {
