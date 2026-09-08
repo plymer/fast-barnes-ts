@@ -1,6 +1,5 @@
-import type { ScalarOrVector } from "../types";
 import type { GridExtremaOptions2D, GridExtremaPoint2D } from "./types";
-import type { BarnesResult } from "../barnes/types";
+import type { BarnesResult, ScalarOrVector } from "../barnes/types";
 
 /**
  * Finds local maxima and minima on a 2D interpolation grid.

@@ -1,4 +1,6 @@
 import type {
+  BarnesOptions,
+  BarnesResult,
   PointInput,
   ScalarOrVector,
   SizeInput,
@@ -7,8 +9,7 @@ import type {
   Tuple2DWithValue,
   Tuple3DWithValue,
   TupleWithValue,
-} from "../types";
-import type { BarnesOptions, BarnesResult } from "./types";
+} from "./types";
 
 const SQRT_2_PI = Math.sqrt(2.0 * Math.PI);
 

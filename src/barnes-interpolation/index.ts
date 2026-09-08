@@ -1,7 +1,6 @@
 import type { Feature, FeatureCollection, LineString, Position, Point } from "geojson";
-import type { BarnesOptions, SphericalBarnesParams2D } from "../barnes/types";
+import type { BarnesOptions, SphericalBarnesParams2D, Tuple2DWithValue } from "../barnes/types";
 import type { PolylinesWithLevels, ScalarField } from "../march/types";
-import type { Tuple2DWithValue } from "../types";
 import type { GridExtremaKind, GridExtremaPoint2D } from "../extrema/types";
 import { barnes } from "../barnes";
 import { getBarnesParams } from "../barnes/helpers";

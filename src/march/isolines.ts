@@ -1,4 +1,4 @@
-import type { Tuple2DWithValue } from "../types.js";
+import type { Tuple2DWithValue } from "../barnes/types";
 
 export function computeThresholds(tupleData: Tuple2DWithValue[], thresholdStep: number) {
   const tupleMinMax = tupleData.reduce(

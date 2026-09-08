@@ -1,4 +1,3 @@
-import type { Tuple2DWithValue } from "../types";
 import {
   createLambertProjection,
   getPointBounds,
@@ -6,7 +5,7 @@ import {
   wgs84ToLcc,
   lccToWgs84,
 } from "./spherical";
-import type { SphericalBarnesParams2D } from "./types";
+import type { SphericalBarnesParams2D, Tuple2DWithValue } from "./types";
 
 function normalizeResolution(resolution: number | readonly [number, number] | undefined): [number, number] {
   if (resolution === undefined) {
