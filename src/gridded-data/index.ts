@@ -1,13 +1,15 @@
 import type { Position } from "geojson";
-import type { PolylinesWithLevels, ScalarField } from "../march/types";
+import type { PolygonsWithLevels, PolylinesWithLevels, ScalarField } from "../march/types";
 import { computeDomainBoundary, computePolylines } from "../march";
 import { computeThresholds } from "../march/isolines";
+import { generateIsoareas } from "../march/isoareas";
 
 export class GriddedData {
   field: ScalarField;
   projection: "WGS84" | "EPSG:3857";
   boundaries: Position[][] | undefined;
   polylines: PolylinesWithLevels | undefined;
+  contourBands: PolygonsWithLevels | undefined;
   thresholdStep: number | undefined;
   thresholds: number[] | undefined;
 
@@ -30,14 +32,22 @@ export class GriddedData {
     console.info("not implemented yet for", format);
   }
 
-  public computeBoundaries() {
-    this.boundaries = computeDomainBoundary(this.field);
-  }
+  public computeIsoareas(thresholdStep?: number) {
+    // if no threshold step is provided, use the default value
+    const threshold = thresholdStep ?? this.thresholdStep;
 
-  public computeIsoareas() {}
+    if (!threshold) throw new Error("No threshold step was initialized for isoarea generation. Please specify one.");
+    // check if thresholded isolines already exist, and then skip generating them
+    // generate the boundary isolines
+
+    this.boundaries = computeDomainBoundary(this.field);
+
+    this.contourBands = generateIsoareas(this.polylines!, this.boundaries!, { thresholdStep: threshold });
+  }
 
   public computeExtrema() {
     // this will require a different implementation than the one that uses the barnes data
+    // due to the necessity of the projection functionality
     console.info("not implemented yet");
   }
 }
