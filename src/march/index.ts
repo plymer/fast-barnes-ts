@@ -423,17 +423,20 @@ export function computePolylines(thresholds: number[], field: ScalarField) {
   };
 }
 
-export function marchingSquares(thresholds: number[], grid: number[][]): PolylinesWithLevels;
+export function marchingSquares(
+  thresholds: number[],
+  grid: number[][],
+): { thresholdLines: PolylinesWithLevels; boundaries: Position[][] };
 export function marchingSquares(
   thresholds: number[],
   typedArray: Float32Array,
   shape: [number, number],
-): PolylinesWithLevels;
+): { thresholdLines: PolylinesWithLevels; boundaries: Position[][] };
 export function marchingSquares(
   thresholds: number[],
   data: number[][] | Float32Array,
   shape?: [number, number],
-): PolylinesWithLevels {
+): { thresholdLines: PolylinesWithLevels; boundaries: Position[][] } {
   if (data instanceof Float32Array) {
     if (!shape) {
       throw new Error("Shape must be provided when using typed array input");
@@ -448,9 +451,11 @@ export function marchingSquares(
         throw new Error("Only 2D shapes are supported");
       }
 
-      return computePolylines(thresholds, fieldFromTypedArray(data, xDim, yDim));
+      const field = fieldFromTypedArray(data, xDim, yDim);
+      return { thresholdLines: computePolylines(thresholds, field), boundaries: computeDomainBoundary(field) };
     }
   } else {
-    return computePolylines(thresholds, fieldFromNestedGrid(data));
+    const field = fieldFromNestedGrid(data);
+    return { thresholdLines: computePolylines(thresholds, field), boundaries: computeDomainBoundary(field) };
   }
 }
