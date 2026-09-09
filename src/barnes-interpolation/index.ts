@@ -224,7 +224,9 @@ export class BarnesInterpolation {
       this.computeIsolines(threshold);
     }
 
-    this.isoareas = generateIsoareas(this.polylines!, this.boundaries!, { thresholdStep: threshold });
+    this.isoareas = generateIsoareas(this.polylines!, this.boundaries!, {
+      shape: this.shape,
+    });
   }
 
   public getIsoareas(format: "wkt"): { value: number; geometry: string }[];
