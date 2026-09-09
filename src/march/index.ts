@@ -149,13 +149,13 @@ function computeSegments(caseIndex: number, x: number, y: number, field: ScalarF
   return isAmbiguous ? resolveSaddle(x, y, caseIndex as 5 | 10, field, threshold) : edgeCodes[caseIndex]!;
 }
 
-/*
 // Traces the rectilinear boundary between fully-valid cells (all 4 corners finite) and their
 // invalid/out-of-grid neighbors, walked clockwise around each valid cell (y-down grid) so the
 // valid region is consistently on the left of travel -- the same handedness the marching-squares
 // isolines use (see edgeCodes below). Every boundary segment is therefore a literal field-node
 // grid edge, exactly the same edge an open isoline dangles from, so the two can be spliced
 // together exactly rather than approximated by nearest-point search.
+
 export function computeDomainBoundary(field: ScalarField): Position[][] {
   const cellXDim = field.xDim - 1;
   const cellYDim = field.yDim - 1;
@@ -219,52 +219,49 @@ export function computeDomainBoundary(field: ScalarField): Position[][] {
   return rings;
 }
 
+// function buildPaddedValidityMask(field: ScalarField): ScalarField {
+//   const xDim = field.xDim + 2;
+//   const yDim = field.yDim + 2;
+//   const mask = new Float32Array(xDim * yDim); // defaults to 0 (invalid) padding
+//   for (let y = 0; y < field.yDim; y++) {
+//     for (let x = 0; x < field.xDim; x++) {
+//       mask[(y + 1) * xDim + (x + 1)] = Number.isFinite(field.get(x, y)) ? 1 : 0;
+//     }
+//   }
 
-*/
+//   const maskField: ScalarField = {
+//     xDim,
+//     yDim,
+//     get: (x, y) => mask[y * xDim + x]!,
+//   };
+//   return maskField;
+// }
 
-function buildPaddedValidityMask(field: ScalarField): ScalarField {
-  const xDim = field.xDim + 2;
-  const yDim = field.yDim + 2;
-  const mask = new Float32Array(xDim * yDim); // defaults to 0 (invalid) padding
-  for (let y = 0; y < field.yDim; y++) {
-    for (let x = 0; x < field.xDim; x++) {
-      mask[(y + 1) * xDim + (x + 1)] = Number.isFinite(field.get(x, y)) ? 1 : 0;
-    }
-  }
+// export function computeDomainBoundary(field: ScalarField): Position[][] {
+//   const maskField = buildPaddedValidityMask(field);
 
-  const maskField: ScalarField = {
-    xDim,
-    yDim,
-    get: (x, y) => mask[y * xDim + x]!,
-  };
-  return maskField;
-}
+//   const threshold = 0.5;
+//   const { caseGrid, cellXDim, cellYDim } = computeCaseIdentities(maskField, threshold);
+//   const {
+//     edgeA,
+//     edgeB,
+//     endpointCount,
+//     horizontalEdgeCount,
+//     xDim: topologyXDim,
+//   } = computeTopology(caseGrid, cellXDim, cellYDim, maskField, threshold);
 
-export function computeDomainBoundary(field: ScalarField): Position[][] {
-  const maskField = buildPaddedValidityMask(field);
-
-  const threshold = 0.5;
-  const { caseGrid, cellXDim, cellYDim } = computeCaseIdentities(maskField, threshold);
-  const {
-    edgeA,
-    edgeB,
-    endpointCount,
-    horizontalEdgeCount,
-    xDim: topologyXDim,
-  } = computeTopology(caseGrid, cellXDim, cellYDim, maskField, threshold);
-
-  // undo the 1-cell padding offset so coordinates line up with the original field's index space
-  return generateGeometry(
-    edgeA,
-    edgeB,
-    endpointCount,
-    horizontalEdgeCount,
-    cellXDim,
-    topologyXDim,
-    maskField,
-    threshold,
-  ).map((line) => line.map(([x, y]) => [x - 1, y - 1] as Position));
-}
+//   // undo the 1-cell padding offset so coordinates line up with the original field's index space
+//   return generateGeometry(
+//     edgeA,
+//     edgeB,
+//     endpointCount,
+//     horizontalEdgeCount,
+//     cellXDim,
+//     topologyXDim,
+//     maskField,
+//     threshold,
+//   ).map((line) => line.map(([x, y]) => [x - 1, y - 1] as Position));
+// }
 
 function computeCaseIdentities(field: ScalarField, threshold: number) {
   const { xDim, yDim } = field;

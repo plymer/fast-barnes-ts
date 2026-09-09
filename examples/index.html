@@ -109,9 +109,13 @@
       const LINES_SOURCE_ID = "lines";
       const BOUNDARIES_SOURCE_ID = "boundaries";
       const AREAS_FILL_LAYER_ID = "areas-fill";
-      const AREAS_VALUES_LAYER_ID = "areas-values";
+      const AREAS_VALUE_LAYER_ID = "areas-value";
+
       const LINES_LAYER_ID = "lines-stroke";
+      const LINES_CIRCLES_LAYER_ID = "lines-circles";
+      const LINES_VALUES_LAYER_ID = "lines-values";
       const BOUNDARIES_LAYER_ID = "boundaries-stroke";
+      const BOUNDARIES_CIRCLES_LAYER_ID = "boundaries-circles";
 
       function computeFeatureBounds(fc) {
         let minX = Infinity;
@@ -204,16 +208,18 @@
           },
         });
 
-        // map.addLayer({
-        //   id: AREAS_VALUES_LAYER_ID,
-        //   type: "symbol",
-        //   source: AREAS_SOURCE_ID,
-        //   layout: {
-        //     "text-allow-overlap": true,
-        //     "text-field": ["to-string", ["coalesce", ["get", "value"], 0]],
-        //     "text-size": 12,
-        //   },
-        // });
+        map.addLayer({
+          id: LINES_VALUES_LAYER_ID,
+          type: "symbol",
+          source: LINES_SOURCE_ID,
+          layout: {
+            "text-allow-overlap": true,
+            "text-field": ["get", "value"],
+            "text-size": 12,
+            "text-font": ["Noto Sans Regular"],
+            "symbol-placement": "line",
+          },
+        });
 
         map.addLayer({
           id: LINES_LAYER_ID,
@@ -225,6 +231,17 @@
             "line-opacity": 0.85,
           },
         });
+
+        map.addLayer({
+          id: LINES_CIRCLES_LAYER_ID,
+          type: "circle",
+          source: LINES_SOURCE_ID,
+          paint: {
+            "circle-color": "#1f2937",
+            "circle-radius": 4,
+            "circle-opacity": 0.85,
+          },
+        });
         map.addLayer({
           id: BOUNDARIES_LAYER_ID,
           type: "line",
@@ -233,6 +250,16 @@
             "line-color": "#ff0000",
             "line-width": 1.1,
             "line-opacity": 0.85,
+          },
+        });
+        map.addLayer({
+          id: BOUNDARIES_CIRCLES_LAYER_ID,
+          type: "circle",
+          source: BOUNDARIES_SOURCE_ID,
+          paint: {
+            "circle-color": "#ff0000",
+            "circle-radius": 4,
+            "circle-opacity": 0.85,
           },
         });
         const bounds = computeFeatureBounds(areas) || computeFeatureBounds(lines);
@@ -262,6 +289,8 @@
 
         toggleLines.addEventListener("change", () => {
           setLayerVisibility(LINES_LAYER_ID, toggleLines.checked);
+          setLayerVisibility(LINES_VALUES_LAYER_ID, toggleLines.checked);
+          setLayerVisibility(LINES_CIRCLES_LAYER_ID, toggleLines.checked);
         });
       });
     </script>
