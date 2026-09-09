@@ -50,6 +50,7 @@
     "build": "tsdown",
     "prepublishOnly": "pnpm build",
     "clean": "rm -rf dist",
+    "example": "pnpm build && node examples/generate-geojson.mjs && node examples/index.mjs",
     "lint": "oxlint --fix",
     "format": "oxfmt",
     "check": "tsc --noEmit && pnpm format && pnpm lint",
