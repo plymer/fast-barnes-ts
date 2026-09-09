@@ -1,6 +1,6 @@
 import type { Position } from "geojson";
 import type { PolygonsWithLevels, PolylinesWithLevels } from "./types";
-import { pointInRing } from "./helpers";
+import { pointInRing, ringSignedArea } from "./helpers";
 
 type IsoareaOptions = {
   shape: [number, number];
@@ -13,6 +13,24 @@ type BoundaryLocation = {
   segmentIndex: number;
   t: number;
   point: Position;
+};
+
+type OpenLineWithBoundary = {
+  lineId: number;
+  levelIdx: number;
+  coords: Position[];
+  startEndpointId: string;
+  endEndpointId: string;
+  startLocation: BoundaryLocation;
+  endLocation: BoundaryLocation;
+};
+
+type EndpointEvent = {
+  endpointId: string;
+  lineId: number;
+  atStart: boolean;
+  location: BoundaryLocation;
+  scalar: number;
 };
 
 const pointMatchEpsilon = 1e-9;
@@ -123,6 +141,204 @@ function buildBoundaryPath(
   return path;
 }
 
+function pickBoundaryLocation(point: Position, boundaries: Position[][]): BoundaryLocation | undefined {
+  const locations = findBoundaryLocations(point, boundaries);
+  if (locations.length === 0) return undefined;
+  return locations.sort((a, b) => {
+    if (a.boundaryRingIndex !== b.boundaryRingIndex) return a.boundaryRingIndex - b.boundaryRingIndex;
+    if (a.segmentIndex !== b.segmentIndex) return a.segmentIndex - b.segmentIndex;
+    return a.t - b.t;
+  })[0];
+}
+
+function boundaryArcInclusive(ring: Position[], from: BoundaryLocation, to: BoundaryLocation): Position[] {
+  const arc: Position[] = [[from.point[0], from.point[1]]];
+  const tail = buildBoundaryPath(ring, from, to, 1);
+  for (const point of tail) {
+    pushIfDistinct(arc, [point[0], point[1]]);
+  }
+  return arc;
+}
+
+function arcDistanceOnRing(ring: Position[], a: BoundaryLocation, b: BoundaryLocation): number {
+  const segmentCount = ring.length - 1;
+  if (segmentCount < 1) return 0;
+  return forwardBoundaryDistance(a, b, segmentCount);
+}
+
+function stitchOpenLinesOnBoundary(
+  openLines: OpenLineWithBoundary[],
+  boundaries: Position[][],
+  preferLargerBoundaryArc: boolean,
+): Position[][] {
+  if (openLines.length === 0) return [];
+
+  const eventsByRing = new Map<number, EndpointEvent[]>();
+
+  for (const line of openLines) {
+    if (line.startLocation.boundaryRingIndex !== line.endLocation.boundaryRingIndex) {
+      return openLines
+        .map((ol) => closePolylineOnBoundary(ol.coords, boundaries))
+        .filter((ring): ring is Position[] => ring !== undefined);
+    }
+
+    const ringIdx = line.startLocation.boundaryRingIndex;
+    const list = eventsByRing.get(ringIdx);
+    const startEvent: EndpointEvent = {
+      endpointId: line.startEndpointId,
+      lineId: line.lineId,
+      atStart: true,
+      location: line.startLocation,
+      scalar: boundaryScalar(line.startLocation),
+    };
+    const endEvent: EndpointEvent = {
+      endpointId: line.endEndpointId,
+      lineId: line.lineId,
+      atStart: false,
+      location: line.endLocation,
+      scalar: boundaryScalar(line.endLocation),
+    };
+
+    if (!list) {
+      eventsByRing.set(ringIdx, [startEvent, endEvent]);
+    } else {
+      list.push(startEvent, endEvent);
+    }
+  }
+
+  const pairMap = new Map<string, string>();
+  const arcMap = new Map<string, Position[]>();
+  const endpointToLine = new Map<string, { lineId: number; atStart: boolean }>();
+
+  for (const line of openLines) {
+    endpointToLine.set(line.startEndpointId, { lineId: line.lineId, atStart: true });
+    endpointToLine.set(line.endEndpointId, { lineId: line.lineId, atStart: false });
+  }
+
+  const keyOf = (a: string, b: string) => `${a}|${b}`;
+
+  for (const [ringIdx, ringEvents] of eventsByRing) {
+    if (ringEvents.length % 2 !== 0) {
+      return openLines
+        .map((ol) => closePolylineOnBoundary(ol.coords, boundaries))
+        .filter((ring): ring is Position[] => ring !== undefined);
+    }
+
+    if (ringEvents.length === 2) {
+      return openLines
+        .map((ol) => closePolylineOnBoundary(ol.coords, boundaries))
+        .filter((ring): ring is Position[] => ring !== undefined);
+    }
+
+    const ring = boundaries[ringIdx]!;
+    const sorted = [...ringEvents].sort((a, b) => a.scalar - b.scalar);
+    const pairingScores = [0, 0];
+
+    for (let offset = 0 as 0 | 1; offset <= 1; offset++) {
+      let score = 0;
+      for (let i = 0; i < sorted.length; i += 2) {
+        const a = sorted[(offset + i) % sorted.length]!;
+        const b = sorted[(offset + i + 1) % sorted.length]!;
+        score += arcDistanceOnRing(ring, a.location, b.location);
+      }
+      pairingScores[offset] = score;
+    }
+
+    const chosenOffset: 0 | 1 =
+      (preferLargerBoundaryArc && pairingScores[0] >= pairingScores[1]) ||
+      (!preferLargerBoundaryArc && pairingScores[0] <= pairingScores[1])
+        ? 0
+        : 1;
+
+    for (let i = 0; i < sorted.length; i += 2) {
+      const a = sorted[(chosenOffset + i) % sorted.length]!;
+      const b = sorted[(chosenOffset + i + 1) % sorted.length]!;
+
+      pairMap.set(a.endpointId, b.endpointId);
+      pairMap.set(b.endpointId, a.endpointId);
+
+      const forward = boundaryArcInclusive(ring, a.location, b.location);
+      arcMap.set(keyOf(a.endpointId, b.endpointId), forward);
+      arcMap.set(keyOf(b.endpointId, a.endpointId), [...forward].reverse());
+    }
+  }
+
+  const loops: Position[][] = [];
+  const consumed = new Uint8Array(openLines.length);
+
+  const traverseFrom = (
+    seedLine: OpenLineWithBoundary,
+    startFromStart: boolean,
+  ): { loop: Position[]; usedLineIds: number[] } | undefined => {
+    const startEndpointId = startFromStart ? seedLine.startEndpointId : seedLine.endEndpointId;
+    const firstSegment = startFromStart ? seedLine.coords : [...seedLine.coords].reverse();
+    const loop: Position[] = firstSegment.map((point) => [point[0], point[1]]);
+
+    const used = new Set<number>([seedLine.lineId]);
+    let currentEndpointId = startFromStart ? seedLine.endEndpointId : seedLine.startEndpointId;
+
+    const maxSteps = openLines.length * 3 + 8;
+    for (let step = 0; step < maxSteps; step++) {
+      const pairedEndpointId = pairMap.get(currentEndpointId);
+      if (!pairedEndpointId) return undefined;
+
+      const connector = arcMap.get(keyOf(currentEndpointId, pairedEndpointId));
+      if (!connector) return undefined;
+      for (let i = 1; i < connector.length; i++) {
+        pushIfDistinct(loop, connector[i]!);
+      }
+
+      if (pairedEndpointId === startEndpointId) {
+        if (!pointsEqual(loop[0]!, loop[loop.length - 1]!)) loop.push(loop[0]!);
+        return { loop, usedLineIds: [...used] };
+      }
+
+      const target = endpointToLine.get(pairedEndpointId);
+      if (!target || used.has(target.lineId)) return undefined;
+
+      const targetLine = openLines[target.lineId]!;
+      const segment = target.atStart ? targetLine.coords : [...targetLine.coords].reverse();
+      for (let i = 1; i < segment.length; i++) {
+        pushIfDistinct(loop, segment[i]!);
+      }
+
+      used.add(target.lineId);
+      currentEndpointId = target.atStart ? targetLine.endEndpointId : targetLine.startEndpointId;
+    }
+
+    return undefined;
+  };
+
+  for (const line of openLines) {
+    if (consumed[line.lineId] === 1) continue;
+
+    const attemptA = traverseFrom(line, true);
+    const attemptB = traverseFrom(line, false);
+    const chosen =
+      !attemptA && !attemptB
+        ? undefined
+        : !attemptA
+          ? attemptB
+          : !attemptB
+            ? attemptA
+            : Math.abs(ringSignedArea(attemptA.loop)) >= Math.abs(ringSignedArea(attemptB.loop))
+              ? attemptA
+              : attemptB;
+
+    if (!chosen) {
+      const fallback = closePolylineOnBoundary(line.coords, boundaries);
+      if (fallback) loops.push(fallback);
+      consumed[line.lineId] = 1;
+      continue;
+    }
+
+    loops.push(chosen.loop);
+    for (const usedLineId of chosen.usedLineIds) consumed[usedLineId] = 1;
+  }
+
+  return loops;
+}
+
 function closePolylineOnBoundary(line: Position[], boundaries: Position[][]): Position[] | undefined {
   const start = line[0]!;
   const end = line[line.length - 1]!;
@@ -174,7 +390,10 @@ function closePolylineOnBoundary(line: Position[], boundaries: Position[][]): Po
 
 function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][]) {
   const closedLines: PolylineWithLevel[] = [];
-  const openLines: PolylineWithLevel[] = [];
+  const openByLevel = new Map<number, OpenLineWithBoundary[]>();
+  const minLevel = Math.min(...polylines.levelValues);
+  const maxLevel = Math.max(...polylines.levelValues);
+  const midLevel = (minLevel + maxLevel) * 0.5;
 
   polylines.polylines.forEach((line, index) => {
     const levelIdx = polylines.levelIndex[index]!;
@@ -188,17 +407,42 @@ function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][]
     if (sx === ex && sy === ey) {
       closedLines.push(polylineWithValue);
     } else {
-      openLines.push(polylineWithValue);
+      const startLocation = pickBoundaryLocation(polylineWithValue.coords[0]!, boundaries);
+      const endLocation = pickBoundaryLocation(polylineWithValue.coords[polylineWithValue.coords.length - 1]!, boundaries);
+
+      if (!startLocation || !endLocation) {
+        const fallback = closePolylineOnBoundary(polylineWithValue.coords, boundaries);
+        if (fallback) closedLines.push({ levelIdx, coords: fallback });
+        return;
+      }
+
+      const list = openByLevel.get(levelIdx);
+      const lineId = list?.length ?? 0;
+      const openLine: OpenLineWithBoundary = {
+        lineId,
+        levelIdx,
+        coords: polylineWithValue.coords,
+        startEndpointId: `${lineId}:s`,
+        endEndpointId: `${lineId}:e`,
+        startLocation,
+        endLocation,
+      };
+
+      if (!list) openByLevel.set(levelIdx, [openLine]);
+      else list.push(openLine);
     }
   });
 
-  const closedShortLines = openLines
-    .map((osl) => {
-      const closedCoords = closePolylineOnBoundary(osl.coords, boundaries);
-      if (!closedCoords) return undefined;
-      return { ...osl, coords: closedCoords };
-    })
-    .filter((osl): osl is PolylineWithLevel => osl !== undefined);
+  const closedShortLines: PolylineWithLevel[] = [];
+
+  for (const [levelIdx, openLines] of openByLevel) {
+    const levelValue = polylines.levelValues[levelIdx]!;
+    const preferLargerBoundaryArc = levelValue <= midLevel;
+    const stitched = stitchOpenLinesOnBoundary(openLines, boundaries, preferLargerBoundaryArc);
+    for (const ring of stitched) {
+      closedShortLines.push({ levelIdx, coords: ring });
+    }
+  }
 
   return { closedLines, closedShortLines };
 }
