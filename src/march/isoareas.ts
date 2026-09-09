@@ -31,7 +31,8 @@ function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][]
   polylines.polylines.forEach((line, index) => {
     const value = getThresholdValue(polylines, index);
 
-    const polylineWithValue: PolylineWithValue = { value, coords: line };
+    // clone the line's coordinates (so we don't accidentally mutate the existing isoline)
+    const polylineWithValue: PolylineWithValue = { value, coords: line.map((p) => [...p]) };
 
     const [sx, sy] = line[0];
     const [ex, ey] = line[line.length - 1];
@@ -63,63 +64,63 @@ function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][]
       if (maxY === yDim - 1) boundaryToWalk.push("top");
 
       if (boundaryToWalk.length === 1) {
-        // const [boundary] = boundaryToWalk;
+        const [boundary] = boundaryToWalk;
 
-        // collect the integer points along the boundary that might be between the x/y values of the first and last points
-        // switch (boundary) {
-        //   case "top": {
-        //     // dealing with yDim - 1 as the boundary condition
-        //     // if we span across at least one grid unit, we need to collect the points inbetween along that boundary
-        //     if (spansGridPoints(sx, ex)) {
-        //       // check for all integer values between sx and ex along the top boundary
-        //       // go from the rightmost point to the leftmost point along the top boundary
-        //       // to maintain the correct CCW windind order
-        //       for (let x = xDim - 1; x >= 0; x--) {
-        //         if (x <= Math.max(sx, ex) && x >= Math.min(sx, ex)) {
-        //           console.log("adding", [x, yDim - 1]);
-        //           osl.coords.push([x, yDim - 1]);
-        //         }
-        //       }
-        //     }
-        //     break;
-        //   }
-        //   case "right": {
-        //     // dealing with xDim -1 as the boundary condition
-        //     if (spansGridPoints(sy, ey)) {
-        //       for (let y = yDim - 1; y >= 0; y--) {
-        //         if (y <= Math.max(sy, ey) && y >= Math.min(sy, ey)) {
-        //           console.log("adding", [xDim - 1, y]);
-        //           osl.coords.push([xDim - 1, y]);
-        //         }
-        //       }
-        //     }
-        //     break;
-        //   }
-        //   case "bottom": {
-        //     // dealing with 0 as the boundary condition for y
-        //     if (spansGridPoints(sx, ex)) {
-        //       for (let x = 0; x < xDim; x++) {
-        //         if (x <= Math.max(sx, ex) && x >= Math.min(sx, ex)) {
-        //           console.log("adding", [x, 0]);
-        //           osl.coords.push([x, 0]);
-        //         }
-        //       }
-        //     }
-        //     break;
-        //   }
-        //   case "left": {
-        //     // dealing with 0 as the boundary condition for x
-        //     if (spansGridPoints(sy, ey)) {
-        //       for (let y = 0; y < yDim; y++) {
-        //         if (y <= Math.max(sy, ey) && y >= Math.min(sy, ey)) {
-        //           console.log("adding", [0, y]);
-        //           osl.coords.push([0, y]);
-        //         }
-        //       }
-        //     }
-        //     break;
-        //   }
-        // }
+        //collect the integer points along the boundary that might be between the x/y values of the first and last points
+        switch (boundary) {
+          case "top": {
+            // dealing with yDim - 1 as the boundary condition
+            // if we span across at least one grid unit, we need to collect the points inbetween along that boundary
+            if (spansGridPoints(sx, ex)) {
+              // check for all integer values between sx and ex along the top boundary
+              // go from the rightmost point to the leftmost point along the top boundary
+              // to maintain the correct CCW windind order
+              for (let x = xDim - 1; x >= 0; x--) {
+                if (x <= Math.max(sx, ex) && x >= Math.min(sx, ex)) {
+                  console.log("adding", [x, yDim - 1]);
+                  osl.coords.push([x, yDim - 1]);
+                }
+              }
+            }
+            break;
+          }
+          case "right": {
+            // dealing with xDim -1 as the boundary condition
+            if (spansGridPoints(sy, ey)) {
+              for (let y = yDim - 1; y >= 0; y--) {
+                if (y <= Math.max(sy, ey) && y >= Math.min(sy, ey)) {
+                  console.log("adding", [xDim - 1, y]);
+                  osl.coords.push([xDim - 1, y]);
+                }
+              }
+            }
+            break;
+          }
+          case "bottom": {
+            // dealing with 0 as the boundary condition for y
+            if (spansGridPoints(sx, ex)) {
+              for (let x = xDim - 1; x >= 0; x--) {
+                if (x <= Math.max(sx, ex) && x >= Math.min(sx, ex)) {
+                  console.log("adding", [x, 0]);
+                  osl.coords.push([x, 0]);
+                }
+              }
+            }
+            break;
+          }
+          case "left": {
+            // dealing with 0 as the boundary condition for x
+            if (spansGridPoints(sy, ey)) {
+              for (let y = yDim - 1; y >= 0; y--) {
+                if (y <= Math.max(sy, ey) && y >= Math.min(sy, ey)) {
+                  console.log("adding", [0, y]);
+                  osl.coords.push([0, y]);
+                }
+              }
+            }
+            break;
+          }
+        }
 
         // if we only touch one side, let's use the first point to close the polyline against that boundary
         return { ...osl, coords: [...osl.coords, osl.coords[0]] };
