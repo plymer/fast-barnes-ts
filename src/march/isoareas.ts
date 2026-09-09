@@ -6,19 +6,63 @@ type IsoareaOptions = {
   shape: [number, number];
 };
 
-// A single closed ring produced either directly from a closed polyline, or by closing an open
-// polyline against the boundary ring it exits through.
-type Ring = {
-  linePoints: Position[];
-  levelIndex: number;
-  // vertices needed to close an open polyline against the boundary it touches, kept separate from
-  // linePoints so duplicate boundary-hugging vertices claimed by another ring can be dropped later.
-  closingRefs?: { point: Position; boundaryRingIndex: number; segmentIndex: number }[];
-};
-
-const pointEpsilon = 1e-7;
+type Boundary = "top" | "right" | "bottom" | "left";
+type BoundaryKey = `${Boundary}-${Boundary}`;
 
 type PolylineWithValue = { value: number; coords: Position[] };
+
+function spansGridPoints(start: number, end: number): boolean {
+  return Math.abs(start - end) > 1;
+}
+
+function addBoundaryPoints(osl: PolylineWithValue, boundary: Boundary, xDim: number, yDim: number) {
+  const [sx, sy] = osl.coords[0];
+  const [ex, ey] = osl.coords[osl.coords.length - 1];
+
+  //collect the integer points along the boundary that might be between the x/y values of the first and last points
+  switch (boundary) {
+    case "top": {
+      // dealing with yDim - 1 as the boundary condition
+      // if we span across at least one grid unit, we need to collect the points inbetween along that boundary
+      if (spansGridPoints(sx, ex)) {
+        // check for all integer values between sx and ex along the top boundary
+        // go from the rightmost point to the leftmost point along the top boundary
+        // to maintain the correct CCW windind order
+        for (let x = xDim - 1; x >= 0; x--) {
+          if (x <= Math.max(sx, ex) && x >= Math.min(sx, ex)) osl.coords.push([x, yDim - 1]);
+        }
+      }
+      break;
+    }
+    case "right": {
+      // dealing with xDim -1 as the boundary condition
+      if (spansGridPoints(sy, ey)) {
+        for (let y = yDim - 1; y >= 0; y--) {
+          if (y <= Math.max(sy, ey) && y >= Math.min(sy, ey)) osl.coords.push([xDim - 1, y]);
+        }
+      }
+      break;
+    }
+    case "bottom": {
+      // dealing with 0 as the boundary condition for y
+      if (spansGridPoints(sx, ex)) {
+        for (let x = xDim - 1; x >= 0; x--) {
+          if (x <= Math.max(sx, ex) && x >= Math.min(sx, ex)) osl.coords.push([x, 0]);
+        }
+      }
+      break;
+    }
+    case "left": {
+      // dealing with 0 as the boundary condition for x
+      if (spansGridPoints(sy, ey)) {
+        for (let y = yDim - 1; y >= 0; y--) {
+          if (y <= Math.max(sy, ey) && y >= Math.min(sy, ey)) osl.coords.push([0, y]);
+        }
+      }
+      break;
+    }
+  }
+}
 
 function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][], shape: [number, number]) {
   const [xDim, yDim] = shape;
@@ -56,7 +100,7 @@ function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][]
       const maxX = Math.max(sx, ex);
       const maxY = Math.max(sy, ey);
 
-      let boundaryToWalk: ("top" | "right" | "bottom" | "left")[] = [];
+      let boundaryToWalk: Boundary[] = [];
 
       if (minX === 0) boundaryToWalk.push("left");
       if (maxX === xDim - 1) boundaryToWalk.push("right");
@@ -71,68 +115,121 @@ function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][]
           case "top": {
             // dealing with yDim - 1 as the boundary condition
             // if we span across at least one grid unit, we need to collect the points inbetween along that boundary
-            if (spansGridPoints(sx, ex)) {
-              // check for all integer values between sx and ex along the top boundary
-              // go from the rightmost point to the leftmost point along the top boundary
-              // to maintain the correct CCW windind order
-              for (let x = xDim - 1; x >= 0; x--) {
-                if (x <= Math.max(sx, ex) && x >= Math.min(sx, ex)) {
-                  console.log("adding", [x, yDim - 1]);
-                  osl.coords.push([x, yDim - 1]);
-                }
-              }
-            }
+            if (spansGridPoints(sx, ex)) addBoundaryPoints(osl, "top", xDim, yDim);
+
             break;
           }
           case "right": {
             // dealing with xDim -1 as the boundary condition
-            if (spansGridPoints(sy, ey)) {
-              for (let y = yDim - 1; y >= 0; y--) {
-                if (y <= Math.max(sy, ey) && y >= Math.min(sy, ey)) {
-                  console.log("adding", [xDim - 1, y]);
-                  osl.coords.push([xDim - 1, y]);
-                }
-              }
-            }
+            if (spansGridPoints(sy, ey)) addBoundaryPoints(osl, "right", xDim, yDim);
+
             break;
           }
           case "bottom": {
             // dealing with 0 as the boundary condition for y
-            if (spansGridPoints(sx, ex)) {
-              for (let x = xDim - 1; x >= 0; x--) {
-                if (x <= Math.max(sx, ex) && x >= Math.min(sx, ex)) {
-                  console.log("adding", [x, 0]);
-                  osl.coords.push([x, 0]);
-                }
-              }
-            }
+            if (spansGridPoints(sx, ex)) addBoundaryPoints(osl, "bottom", xDim, yDim);
             break;
           }
           case "left": {
             // dealing with 0 as the boundary condition for x
-            if (spansGridPoints(sy, ey)) {
-              for (let y = yDim - 1; y >= 0; y--) {
-                if (y <= Math.max(sy, ey) && y >= Math.min(sy, ey)) {
-                  console.log("adding", [0, y]);
-                  osl.coords.push([0, y]);
-                }
-              }
-            }
+            if (spansGridPoints(sy, ey)) addBoundaryPoints(osl, "left", xDim, yDim);
             break;
           }
         }
+      } else {
+        const boundaryKey = boundaryToWalk.join("-") as BoundaryKey;
 
-        // if we only touch one side, let's use the first point to close the polyline against that boundary
-        return { ...osl, coords: [...osl.coords, osl.coords[0]] };
+        switch (boundaryKey) {
+          case "top-left": {
+            console.log("top-left case");
+            addBoundaryPoints(osl, "left", xDim, yDim);
+            addBoundaryPoints(osl, "top", xDim, yDim);
+            break;
+          }
+          case "left-top": {
+            console.log("left-top case");
+            addBoundaryPoints(osl, "top", xDim, yDim);
+            addBoundaryPoints(osl, "left", xDim, yDim);
+            break;
+          }
+
+          case "top-right": {
+            console.log("top-right case");
+            addBoundaryPoints(osl, "right", xDim, yDim);
+            addBoundaryPoints(osl, "top", xDim, yDim);
+            break;
+          }
+          case "right-top": {
+            console.log("right-top case");
+            addBoundaryPoints(osl, "top", xDim, yDim);
+            addBoundaryPoints(osl, "right", xDim, yDim);
+            break;
+          }
+
+          case "bottom-left": {
+            console.log("bottom-left case");
+            addBoundaryPoints(osl, "left", xDim, yDim);
+            addBoundaryPoints(osl, "bottom", xDim, yDim);
+            break;
+          }
+
+          case "left-bottom": {
+            console.log("left-bottom case");
+            addBoundaryPoints(osl, "bottom", xDim, yDim);
+            addBoundaryPoints(osl, "left", xDim, yDim);
+            break;
+          }
+
+          case "bottom-right": {
+            console.log("bottom-right case");
+            addBoundaryPoints(osl, "right", xDim, yDim);
+            addBoundaryPoints(osl, "bottom", xDim, yDim);
+            break;
+          }
+          case "right-bottom": {
+            console.log("right-bottom case");
+            addBoundaryPoints(osl, "bottom", xDim, yDim);
+            addBoundaryPoints(osl, "right", xDim, yDim);
+            break;
+          }
+
+          case "top-bottom": {
+            console.log("t-b vertical case");
+            addBoundaryPoints(osl, "bottom", xDim, yDim);
+            addBoundaryPoints(osl, "top", xDim, yDim);
+            break;
+          }
+          case "bottom-top": {
+            console.log("b-t vertical case");
+            addBoundaryPoints(osl, "top", xDim, yDim);
+            addBoundaryPoints(osl, "bottom", xDim, yDim);
+            break;
+          }
+
+          case "left-right": {
+            console.log("l-r horizontal case");
+            addBoundaryPoints(osl, "right", xDim, yDim);
+            addBoundaryPoints(osl, "left", xDim, yDim);
+            break;
+          }
+          case "right-left": {
+            console.log("r-l horizontal case");
+            addBoundaryPoints(osl, "left", xDim, yDim);
+            addBoundaryPoints(osl, "right", xDim, yDim);
+            break;
+          }
+
+          default: {
+            throw new Error(`We hit a case where we didn't catch a single-touch boundary: ${boundaryKey}`);
+          }
+        }
       }
+      // if we only touch one side, let's use the first point to close the polyline against that boundary
+      return { ...osl, coords: [...osl.coords, osl.coords[0]] };
     })
     .filter((osl) => osl !== undefined);
 
-  return { closedLines, openLines, closedShortLines };
-}
-
-function spansGridPoints(start: number, end: number): boolean {
-  return Math.abs(start - end) > 1;
+  return { closedLines, closedShortLines };
 }
 
 export function generateIsoareas(
