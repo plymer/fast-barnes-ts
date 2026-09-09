@@ -37,7 +37,7 @@ export class BarnesInterpolation {
   thresholdStep: number | undefined;
   thresholds: number[] | undefined;
   polylines: PolylinesWithLevels | undefined;
-  contourBands: PolygonsWithLevels | undefined;
+  isoareas: PolygonsWithLevels | undefined;
   field: ScalarField;
   extrema: GridExtremaPoint2D[] | undefined;
   boundaries: Position[][] | undefined;
@@ -81,21 +81,57 @@ export class BarnesInterpolation {
     return { x, y };
   }
 
-  private convertToWgs84(lines: Position[], paddingOffset?: { x: number; y: number }): Position[] {
+  private convertToWgs84(geometries: Position[], paddingOffset?: { x: number; y: number }): Position[];
+  private convertToWgs84(geometries: Position[][], paddingOffset?: { x: number; y: number }): Position[][];
+  private convertToWgs84(
+    geometries: Position[] | Position[][],
+    paddingOffset?: { x: number; y: number },
+  ): Position[] | Position[][] {
     if (!paddingOffset) paddingOffset = { x: 0, y: 0 };
-    return lines.map(([x, y]) =>
-      this.barnesParams.unproject(
-        this.barnesParams.x0[0] + paddingOffset.x + x * this.barnesParams.step[0]!,
-        this.barnesParams.x0[1] + paddingOffset.y + y * this.barnesParams.step[1]!,
-      ),
-    );
+    if (Array.isArray(geometries[0][0])) {
+      // geometries is Position[][] (aka a Polygon)
+      return (geometries as Position[][]).map((polygon) =>
+        polygon.map(([x, y]) =>
+          this.barnesParams.unproject(
+            this.barnesParams.x0[0] + paddingOffset.x + x * this.barnesParams.step[0]!,
+            this.barnesParams.x0[1] + paddingOffset.y + y * this.barnesParams.step[1]!,
+          ),
+        ),
+      );
+    } else {
+      // geometries is Position[] (aka a Line)
+      return (geometries as Position[]).map(([x, y]) =>
+        this.barnesParams.unproject(
+          this.barnesParams.x0[0] + paddingOffset.x + x * this.barnesParams.step[0]!,
+          this.barnesParams.x0[1] + paddingOffset.y + y * this.barnesParams.step[1]!,
+        ),
+      );
+    }
   }
 
-  private convertToWebMercator(lines: Position[], paddingOffset?: { x: number; y: number }): Position[] {
-    return this.convertToWgs84(lines, paddingOffset).map(([lon, lat]) => {
-      const { x, y } = this.lonLatToWebMercator(lon, lat);
-      return [x, y] as Position;
-    });
+  private convertToWebMercator(geometries: Position[], paddingOffset?: { x: number; y: number }): Position[];
+  private convertToWebMercator(geometries: Position[][], paddingOffset?: { x: number; y: number }): Position[][];
+  private convertToWebMercator(
+    geometries: Position[] | Position[][],
+    paddingOffset?: { x: number; y: number },
+  ): Position[] | Position[][] {
+    if (Array.isArray(geometries[0][0])) {
+      // converted is Position[][]
+      const converted = this.convertToWgs84(geometries as Position[][], paddingOffset);
+      return converted.map((polygon) =>
+        polygon.map(([lon, lat]) => {
+          const { x, y } = this.lonLatToWebMercator(lon, lat);
+          return [x, y] as Position;
+        }),
+      );
+    } else {
+      // converted is Position[]
+      const converted = this.convertToWgs84(geometries as Position[], paddingOffset);
+      return converted.map(([lon, lat]) => {
+        const { x, y } = this.lonLatToWebMercator(lon, lat);
+        return [x, y] as Position;
+      });
+    }
   }
 
   public computeIsolines(thresholdStep: number) {
@@ -173,7 +209,7 @@ export class BarnesInterpolation {
       this.computeIsolines(threshold);
     }
 
-    this.contourBands = generateIsoareas(this.polylines!, this.boundaries!, { thresholdStep: threshold });
+    this.isoareas = generateIsoareas(this.polylines!, this.boundaries!, { thresholdStep: threshold });
   }
 
   public getIsoareas(format: "wkt"): { value: number; geometry: string }[];
@@ -181,26 +217,27 @@ export class BarnesInterpolation {
   public getIsoareas(
     format: "wkt" | "geojson" = "wkt",
   ): { value: number; geometry: string }[] | FeatureCollection<Polygon> {
-    if (!this.contourBands) throw new Error("No isoareas have been computed.");
+    if (!this.isoareas) throw new Error("No isoareas have been computed.");
 
     switch (format) {
       case "wkt": {
-        const isoareas = this.contourBands!;
+        const isoareas = {
+          ...this.isoareas,
+          polygons: this.isoareas?.polygons.map((p) => this.convertToWebMercator(p)),
+        };
 
-        // need to project the coordinates of the polygons into Web Mercator
-
-        const areas = this.contourBands.polygons.map((polygon, idx) => ({
+        return isoareas.polygons.map((polygon, idx) => ({
           value: getThresholdValue(isoareas, idx),
           geometry: `POLYGON((${polygon[0]!.map(([lon, lat]) => `${lon} ${lat}`).join(",")}))`,
         }));
-        return areas;
       }
       case "geojson": {
-        const isoareas = this.contourBands!;
+        const isoareas = {
+          ...this.isoareas,
+          polygons: this.isoareas?.polygons.map((p) => this.convertToWgs84(p)),
+        };
 
-        // need to project the coordinates of the polygons into WGS84
-
-        const features: Feature<Polygon, { value: number }>[] = this.contourBands.polygons.map((polygon, idx) => ({
+        const features: Feature<Polygon, { value: number }>[] = isoareas.polygons.map((polygon, idx) => ({
           type: "Feature",
           geometry: {
             type: "Polygon",
