@@ -69,6 +69,10 @@ export class BarnesInterpolation {
     this.field = fieldFromTypedArray(data, this.shape[0], this.shape[1]);
   }
 
+  public getField() {
+    return this.field;
+  }
+
   private lonLatToWebMercator(lon: number, lat: number): { x: number; y: number } {
     const clampedLat = Math.max(Math.min(lat, 85.05112878), -85.05112878);
     const x = (lon * 20037508.34) / 180;
@@ -110,7 +114,7 @@ export class BarnesInterpolation {
   ): { value: number; geometry: string }[] | FeatureCollection<LineString> {
     if (!this.polylines) {
       if (!this.thresholdStep) {
-        throw new Error("No threshold step was initialized for isoline generation. Please specify one.");
+        throw new Error("No threshold step was initialized for isoline generation. Please `computeIsolines` first.");
       }
       this.computeIsolines(this.thresholdStep);
     }
@@ -164,6 +168,10 @@ export class BarnesInterpolation {
     // generate the boundary isolines
 
     this.boundaries = computeDomainBoundary(this.field);
+
+    if (this.polylines === undefined) {
+      this.computeIsolines(threshold);
+    }
 
     this.contourBands = generateIsoareas(this.polylines!, this.boundaries!, { thresholdStep: threshold });
   }
