@@ -1,82 +1,186 @@
 import type { Position } from "geojson";
 import type { PolygonsWithLevels, PolylinesWithLevels } from "./types";
-import { getThresholdValue } from "./helpers";
+import { pointInRing } from "./helpers";
 
 type IsoareaOptions = {
   shape: [number, number];
 };
 
-type Boundary = "top" | "right" | "bottom" | "left";
-type BoundaryKey = `${Boundary}-${Boundary}`;
+type PolylineWithLevel = { levelIdx: number; coords: Position[] };
 
-type PolylineWithValue = { value: number; coords: Position[] };
+type BoundaryLocation = {
+  boundaryRingIndex: number;
+  segmentIndex: number;
+  t: number;
+  point: Position;
+};
 
-function spansGridPoints(start: number, end: number): boolean {
-  return Math.abs(start - end) > 1;
+const pointMatchEpsilon = 1e-9;
+
+function nearlyEqual(a: number, b: number): boolean {
+  return Math.abs(a - b) <= pointMatchEpsilon;
 }
 
-function addBoundaryPoints(osl: PolylineWithValue, boundary: Boundary, xDim: number, yDim: number) {
-  const [sx, sy] = osl.coords[0];
-  const [ex, ey] = osl.coords[osl.coords.length - 1];
+function pointsEqual(a: Position, b: Position): boolean {
+  return nearlyEqual(a[0], b[0]) && nearlyEqual(a[1], b[1]);
+}
 
-  //collect the integer points along the boundary that might be between the x/y values of the first and last points
-  switch (boundary) {
-    case "top": {
-      // dealing with yDim - 1 as the boundary condition
-      // if we span across at least one grid unit, we need to collect the points inbetween along that boundary
-      if (spansGridPoints(sx, ex)) {
-        // check for all integer values between sx and ex along the top boundary
-        // go from the rightmost point to the leftmost point along the top boundary
-        // to maintain the correct CCW windind order
-        for (let x = xDim - 1; x >= 0; x--) {
-          if (x <= Math.max(sx, ex) && x >= Math.min(sx, ex)) osl.coords.push([x, yDim - 1]);
-        }
-      }
-      break;
+function pointOnBoundarySegment(point: Position, a: Position, b: Position): number | undefined {
+  const [px, py] = point;
+  const [ax, ay] = a;
+  const [bx, by] = b;
+  const dx = bx - ax;
+  const dy = by - ay;
+
+  // Domain boundary segments are axis-aligned and should have non-zero length.
+  if (Math.abs(dx) > pointMatchEpsilon) {
+    if (!nearlyEqual(py, ay) || !nearlyEqual(py, by)) return undefined;
+    const t = (px - ax) / dx;
+    return t >= -pointMatchEpsilon && t <= 1 + pointMatchEpsilon ? Math.min(1, Math.max(0, t)) : undefined;
+  }
+
+  if (Math.abs(dy) > pointMatchEpsilon) {
+    if (!nearlyEqual(px, ax) || !nearlyEqual(px, bx)) return undefined;
+    const t = (py - ay) / dy;
+    return t >= -pointMatchEpsilon && t <= 1 + pointMatchEpsilon ? Math.min(1, Math.max(0, t)) : undefined;
+  }
+
+  return undefined;
+}
+
+function findBoundaryLocations(point: Position, boundaries: Position[][]): BoundaryLocation[] {
+  const locations: BoundaryLocation[] = [];
+
+  boundaries.forEach((ring, boundaryRingIndex) => {
+    const segmentCount = ring.length - 1;
+    if (segmentCount < 1) return;
+
+    for (let segmentIndex = 0; segmentIndex < segmentCount; segmentIndex++) {
+      const a = ring[segmentIndex]!;
+      const b = ring[segmentIndex + 1]!;
+      const t = pointOnBoundarySegment(point, a, b);
+      if (t === undefined) continue;
+      locations.push({ boundaryRingIndex, segmentIndex, t, point });
     }
-    case "right": {
-      // dealing with xDim -1 as the boundary condition
-      if (spansGridPoints(sy, ey)) {
-        for (let y = yDim - 1; y >= 0; y--) {
-          if (y <= Math.max(sy, ey) && y >= Math.min(sy, ey)) osl.coords.push([xDim - 1, y]);
-        }
-      }
-      break;
+  });
+
+  return locations;
+}
+
+function pushIfDistinct(points: Position[], point: Position) {
+  const last = points[points.length - 1];
+  if (!last || !pointsEqual(last, point)) points.push(point);
+}
+
+function boundaryScalar(ref: BoundaryLocation): number {
+  return ref.segmentIndex + ref.t;
+}
+
+function forwardBoundaryDistance(from: BoundaryLocation, to: BoundaryLocation, segmentCount: number): number {
+  const fromScalar = boundaryScalar(from);
+  const toScalar = boundaryScalar(to);
+  return toScalar >= fromScalar ? toScalar - fromScalar : segmentCount - (fromScalar - toScalar);
+}
+
+function buildBoundaryPath(
+  ring: Position[],
+  from: BoundaryLocation,
+  to: BoundaryLocation,
+  direction: 1 | -1,
+): Position[] {
+  const segmentCount = ring.length - 1;
+  if (segmentCount < 1) return [to.point];
+
+  if (
+    from.segmentIndex === to.segmentIndex &&
+    ((direction === 1 && from.t <= to.t) || (direction === -1 && from.t >= to.t))
+  ) {
+    return [to.point];
+  }
+
+  const path: Position[] = [];
+  let segmentIndex = from.segmentIndex;
+
+  if (direction === 1) {
+    if (from.t < 1 - pointMatchEpsilon) pushIfDistinct(path, ring[segmentIndex + 1]!);
+
+    segmentIndex = (segmentIndex + 1) % segmentCount;
+    while (segmentIndex !== to.segmentIndex) {
+      pushIfDistinct(path, ring[segmentIndex + 1]!);
+      segmentIndex = (segmentIndex + 1) % segmentCount;
     }
-    case "bottom": {
-      // dealing with 0 as the boundary condition for y
-      if (spansGridPoints(sx, ex)) {
-        for (let x = xDim - 1; x >= 0; x--) {
-          if (x <= Math.max(sx, ex) && x >= Math.min(sx, ex)) osl.coords.push([x, 0]);
-        }
-      }
-      break;
-    }
-    case "left": {
-      // dealing with 0 as the boundary condition for x
-      if (spansGridPoints(sy, ey)) {
-        for (let y = yDim - 1; y >= 0; y--) {
-          if (y <= Math.max(sy, ey) && y >= Math.min(sy, ey)) osl.coords.push([0, y]);
-        }
-      }
-      break;
+  } else {
+    if (from.t > pointMatchEpsilon) pushIfDistinct(path, ring[segmentIndex]!);
+
+    segmentIndex = (segmentIndex - 1 + segmentCount) % segmentCount;
+    while (segmentIndex !== to.segmentIndex) {
+      pushIfDistinct(path, ring[segmentIndex]!);
+      segmentIndex = (segmentIndex - 1 + segmentCount) % segmentCount;
     }
   }
+
+  pushIfDistinct(path, to.point);
+  return path;
 }
 
-function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][], shape: [number, number]) {
-  const [xDim, yDim] = shape;
+function closePolylineOnBoundary(line: Position[], boundaries: Position[][]): Position[] | undefined {
+  const start = line[0]!;
+  const end = line[line.length - 1]!;
 
-  // lines we don't need to deal with - these are already valid polygon rings
-  const closedLines: PolylineWithValue[] = [];
+  const startLocations = findBoundaryLocations(start, boundaries);
+  const endLocations = findBoundaryLocations(end, boundaries);
 
-  const openLines: PolylineWithValue[] = [];
+  let bestPair:
+    | {
+        startLocation: BoundaryLocation;
+        endLocation: BoundaryLocation;
+        distance: number;
+      }
+    | undefined;
+
+  for (const startLocation of startLocations) {
+    for (const endLocation of endLocations) {
+      if (startLocation.boundaryRingIndex !== endLocation.boundaryRingIndex) continue;
+
+      const ring = boundaries[startLocation.boundaryRingIndex]!;
+      const segmentCount = ring.length - 1;
+      if (segmentCount < 1) continue;
+
+      const forward = forwardBoundaryDistance(endLocation, startLocation, segmentCount);
+      const backward = segmentCount - forward;
+      const distance = Math.min(forward, backward);
+
+      if (!bestPair || distance < bestPair.distance) {
+        bestPair = { startLocation, endLocation, distance };
+      }
+    }
+  }
+
+  if (!bestPair) return undefined;
+
+  const ring = boundaries[bestPair.startLocation.boundaryRingIndex]!;
+  const segmentCount = ring.length - 1;
+
+  const forward = forwardBoundaryDistance(bestPair.endLocation, bestPair.startLocation, segmentCount);
+  const backward = segmentCount - forward;
+  const direction: 1 | -1 = forward <= backward ? 1 : -1;
+
+  const closingPath = buildBoundaryPath(ring, bestPair.endLocation, bestPair.startLocation, direction);
+  const closed = [...line, ...closingPath];
+
+  if (!pointsEqual(closed[0]!, closed[closed.length - 1]!)) closed.push(closed[0]!);
+  return closed;
+}
+
+function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][]) {
+  const closedLines: PolylineWithLevel[] = [];
+  const openLines: PolylineWithLevel[] = [];
 
   polylines.polylines.forEach((line, index) => {
-    const value = getThresholdValue(polylines, index);
+    const levelIdx = polylines.levelIndex[index]!;
 
     // clone the line's coordinates (so we don't accidentally mutate the existing isoline)
-    const polylineWithValue: PolylineWithValue = { value, coords: line.map((p) => [...p]) };
+    const polylineWithValue: PolylineWithLevel = { levelIdx, coords: line.map((p) => [...p]) };
 
     const [sx, sy] = line[0];
     const [ex, ey] = line[line.length - 1];
@@ -88,165 +192,62 @@ function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][]
     }
   });
 
-  // check which boundary points could be included in the open lines
-
   const closedShortLines = openLines
     .map((osl) => {
-      const [sx, sy] = osl.coords[0];
-      const [ex, ey] = osl.coords[osl.coords.length - 1];
-
-      const minX = Math.min(sx, ex);
-      const minY = Math.min(sy, ey);
-      const maxX = Math.max(sx, ex);
-      const maxY = Math.max(sy, ey);
-
-      let boundaryToWalk: Boundary[] = [];
-
-      if (minX === 0) boundaryToWalk.push("left");
-      if (maxX === xDim - 1) boundaryToWalk.push("right");
-      if (minY === 0) boundaryToWalk.push("bottom");
-      if (maxY === yDim - 1) boundaryToWalk.push("top");
-
-      if (boundaryToWalk.length === 1) {
-        const [boundary] = boundaryToWalk;
-
-        //collect the integer points along the boundary that might be between the x/y values of the first and last points
-        switch (boundary) {
-          case "top": {
-            // dealing with yDim - 1 as the boundary condition
-            // if we span across at least one grid unit, we need to collect the points inbetween along that boundary
-            if (spansGridPoints(sx, ex)) addBoundaryPoints(osl, "top", xDim, yDim);
-
-            break;
-          }
-          case "right": {
-            // dealing with xDim -1 as the boundary condition
-            if (spansGridPoints(sy, ey)) addBoundaryPoints(osl, "right", xDim, yDim);
-
-            break;
-          }
-          case "bottom": {
-            // dealing with 0 as the boundary condition for y
-            if (spansGridPoints(sx, ex)) addBoundaryPoints(osl, "bottom", xDim, yDim);
-            break;
-          }
-          case "left": {
-            // dealing with 0 as the boundary condition for x
-            if (spansGridPoints(sy, ey)) addBoundaryPoints(osl, "left", xDim, yDim);
-            break;
-          }
-        }
-      } else {
-        const boundaryKey = boundaryToWalk.join("-") as BoundaryKey;
-
-        switch (boundaryKey) {
-          case "top-left": {
-            console.log("top-left case");
-            addBoundaryPoints(osl, "left", xDim, yDim);
-            addBoundaryPoints(osl, "top", xDim, yDim);
-            break;
-          }
-          case "left-top": {
-            console.log("left-top case");
-            addBoundaryPoints(osl, "top", xDim, yDim);
-            addBoundaryPoints(osl, "left", xDim, yDim);
-            break;
-          }
-
-          case "top-right": {
-            console.log("top-right case");
-            addBoundaryPoints(osl, "right", xDim, yDim);
-            addBoundaryPoints(osl, "top", xDim, yDim);
-            break;
-          }
-          case "right-top": {
-            console.log("right-top case");
-            addBoundaryPoints(osl, "top", xDim, yDim);
-            addBoundaryPoints(osl, "right", xDim, yDim);
-            break;
-          }
-
-          case "bottom-left": {
-            console.log("bottom-left case");
-            addBoundaryPoints(osl, "left", xDim, yDim);
-            addBoundaryPoints(osl, "bottom", xDim, yDim);
-            break;
-          }
-
-          case "left-bottom": {
-            console.log("left-bottom case");
-            addBoundaryPoints(osl, "bottom", xDim, yDim);
-            addBoundaryPoints(osl, "left", xDim, yDim);
-            break;
-          }
-
-          case "bottom-right": {
-            console.log("bottom-right case");
-            addBoundaryPoints(osl, "right", xDim, yDim);
-            addBoundaryPoints(osl, "bottom", xDim, yDim);
-            break;
-          }
-          case "right-bottom": {
-            console.log("right-bottom case");
-            addBoundaryPoints(osl, "bottom", xDim, yDim);
-            addBoundaryPoints(osl, "right", xDim, yDim);
-            break;
-          }
-
-          case "top-bottom": {
-            console.log("t-b vertical case");
-            addBoundaryPoints(osl, "bottom", xDim, yDim);
-            addBoundaryPoints(osl, "top", xDim, yDim);
-            break;
-          }
-          case "bottom-top": {
-            console.log("b-t vertical case");
-            addBoundaryPoints(osl, "top", xDim, yDim);
-            addBoundaryPoints(osl, "bottom", xDim, yDim);
-            break;
-          }
-
-          case "left-right": {
-            console.log("l-r horizontal case");
-            addBoundaryPoints(osl, "right", xDim, yDim);
-            addBoundaryPoints(osl, "left", xDim, yDim);
-            break;
-          }
-          case "right-left": {
-            console.log("r-l horizontal case");
-            addBoundaryPoints(osl, "left", xDim, yDim);
-            addBoundaryPoints(osl, "right", xDim, yDim);
-            break;
-          }
-
-          default: {
-            throw new Error(`We hit a case where we didn't catch a single-touch boundary: ${boundaryKey}`);
-          }
-        }
-      }
-      // if we only touch one side, let's use the first point to close the polyline against that boundary
-      return { ...osl, coords: [...osl.coords, osl.coords[0]] };
+      const closedCoords = closePolylineOnBoundary(osl.coords, boundaries);
+      if (!closedCoords) return undefined;
+      return { ...osl, coords: closedCoords };
     })
-    .filter((osl) => osl !== undefined);
+    .filter((osl): osl is PolylineWithLevel => osl !== undefined);
 
   return { closedLines, closedShortLines };
+}
+
+function toLevels(rings: PolylineWithLevel[], levelCount: number): Position[][][] {
+  const levels: Position[][][] = Array.from({ length: levelCount }, () => []);
+
+  for (const ring of rings) {
+    levels[ring.levelIdx]?.push(ring.coords);
+  }
+
+  return levels;
+}
+
+function immediateChildren(parent: Position[], candidates: Position[][]): Position[][] {
+  const contained = candidates.filter((candidate) => pointInRing(candidate[0]!, parent));
+  return contained.filter(
+    (candidate) => !contained.some((other) => other !== candidate && pointInRing(candidate[0]!, other)),
+  );
 }
 
 export function generateIsoareas(
   polylines: PolylinesWithLevels,
   boundaries: Position[][],
-  options: IsoareaOptions,
+  _options: IsoareaOptions,
 ): PolygonsWithLevels {
-  const levelIndex = new Uint8Array();
+  const { closedLines, closedShortLines } = closePolylines(polylines, boundaries);
 
-  const { closedLines, closedShortLines } = closePolylines(polylines, boundaries, options.shape);
+  const thresholdRings = [...closedLines, ...closedShortLines];
+  const ringsByLevel = toLevels(thresholdRings, polylines.levelValues.length);
 
-  // if one of the x or y values is equal to either zero or the boundary limit, it might indicate an edge case for closing the polyline
+  const polygons: Position[][][] = [];
+  const levelIndexBuffer: number[] = [];
 
-  console.log("started closed:", closedLines.length);
-  console.log("we closed:", closedShortLines.length);
+  // Build contour bands as: area(>= level[i]) minus area(>= level[i + 1]).
+  for (let bandIdx = 0; bandIdx < polylines.levelValues.length - 1; bandIdx++) {
+    const lowerLevelRings = ringsByLevel[bandIdx] ?? [];
+    if (lowerLevelRings.length === 0) continue;
 
-  const polygons = [...closedLines, ...closedShortLines].map((line) => [line.coords]);
+    const upperLevelRings = ringsByLevel[bandIdx + 1] ?? [];
+
+    for (const lowerRing of lowerLevelRings) {
+      const holes = immediateChildren(lowerRing, upperLevelRings);
+      polygons.push([lowerRing, ...holes]);
+      levelIndexBuffer.push(bandIdx);
+    }
+  }
+
+  const levelIndex = Uint8Array.from(levelIndexBuffer);
 
   return { polygons, levelIndex, levelValues: polylines.levelValues };
 }

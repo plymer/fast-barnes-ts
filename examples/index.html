@@ -209,6 +209,18 @@
         });
 
         map.addLayer({
+          id: AREAS_VALUE_LAYER_ID,
+          type: "symbol",
+          source: AREAS_SOURCE_ID,
+          layout: {
+            "text-allow-overlap": true,
+            "text-field": ["get", "value"],
+            "text-size": 24,
+            "text-font": ["Noto Sans Regular"],
+          },
+        });
+
+        map.addLayer({
           id: LINES_VALUES_LAYER_ID,
           type: "symbol",
           source: LINES_SOURCE_ID,
