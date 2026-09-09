@@ -149,6 +149,79 @@ function computeSegments(caseIndex: number, x: number, y: number, field: ScalarF
   return isAmbiguous ? resolveSaddle(x, y, caseIndex as 5 | 10, field, threshold) : edgeCodes[caseIndex]!;
 }
 
+/*
+// Traces the rectilinear boundary between fully-valid cells (all 4 corners finite) and their
+// invalid/out-of-grid neighbors, walked clockwise around each valid cell (y-down grid) so the
+// valid region is consistently on the left of travel -- the same handedness the marching-squares
+// isolines use (see edgeCodes below). Every boundary segment is therefore a literal field-node
+// grid edge, exactly the same edge an open isoline dangles from, so the two can be spliced
+// together exactly rather than approximated by nearest-point search.
+export function computeDomainBoundary(field: ScalarField): Position[][] {
+  const cellXDim = field.xDim - 1;
+  const cellYDim = field.yDim - 1;
+  const isValidCell = (x: number, y: number) => {
+    if (x < 0 || x >= cellXDim || y < 0 || y >= cellYDim) return false;
+    return (
+      Number.isFinite(field.get(x, y)) &&
+      Number.isFinite(field.get(x + 1, y)) &&
+      Number.isFinite(field.get(x + 1, y + 1)) &&
+      Number.isFinite(field.get(x, y + 1))
+    );
+  };
+
+  const keyOf = (x: number, y: number) => `${x},${y}`;
+  const outgoing = new Map<string, Position[]>();
+  const addEdge = (fx: number, fy: number, tx: number, ty: number) => {
+    const k = keyOf(fx, fy);
+    const list = outgoing.get(k);
+    if (list) list.push([tx, ty]);
+    else outgoing.set(k, [[tx, ty]]);
+  };
+
+  for (let y = 0; y < cellYDim; y++) {
+    for (let x = 0; x < cellXDim; x++) {
+      if (!isValidCell(x, y)) continue;
+      if (!isValidCell(x, y - 1)) addEdge(x, y, x + 1, y); // top
+      if (!isValidCell(x + 1, y)) addEdge(x + 1, y, x + 1, y + 1); // right
+      if (!isValidCell(x, y + 1)) addEdge(x + 1, y + 1, x, y + 1); // bottom
+      if (!isValidCell(x - 1, y)) addEdge(x, y + 1, x, y); // left
+    }
+  }
+
+  const maxSteps = cellXDim * cellYDim * 4 + 4;
+  const rings: Position[][] = [];
+
+  for (const startKey of outgoing.keys()) {
+    let startEdges = outgoing.get(startKey)!;
+    while (startEdges.length > 0) {
+      const [startX, startY] = startKey.split(",").map(Number) as [number, number];
+      const ring: Position[] = [[startX, startY]];
+      let currentKey = startKey;
+      let guard = 0;
+      while (true) {
+        const edges = outgoing.get(currentKey);
+        if (!edges || edges.length === 0) {
+          throw new Error("Domain boundary trace did not close; the validity mask may be malformed.");
+        }
+        const [nx, ny] = edges.pop()!;
+        ring.push([nx, ny]);
+        currentKey = keyOf(nx, ny);
+        if (nx === startX && ny === startY) break;
+        if (++guard > maxSteps) {
+          throw new Error("Domain boundary trace exceeded the expected length; the validity mask may be malformed.");
+        }
+      }
+      rings.push(ring);
+      startEdges = outgoing.get(startKey)!;
+    }
+  }
+
+  return rings;
+}
+
+
+*/
+
 function buildPaddedValidityMask(field: ScalarField): ScalarField {
   const xDim = field.xDim + 2;
   const yDim = field.yDim + 2;
