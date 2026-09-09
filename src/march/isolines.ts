@@ -34,8 +34,8 @@ export function computeThresholds(data: Tuple2DWithValue[] | ScalarField, thresh
 
       const field = data as ScalarField;
 
-      for (let i = 0; i <= field.xDim; i++) {
-        for (let j = 0; j <= field.yDim; j++) {
+      for (let i = 0; i < field.xDim; i++) {
+        for (let j = 0; j < field.yDim; j++) {
           const value = field.get(i, j);
           if (value < min) {
             min = value;

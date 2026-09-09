@@ -107,8 +107,11 @@
 
       const AREAS_SOURCE_ID = "areas";
       const LINES_SOURCE_ID = "lines";
-      const AREAS_LAYER_ID = "areas-fill";
+      const BOUNDARIES_SOURCE_ID = "boundaries";
+      const AREAS_FILL_LAYER_ID = "areas-fill";
+      const AREAS_VALUES_LAYER_ID = "areas-values";
       const LINES_LAYER_ID = "lines-stroke";
+      const BOUNDARIES_LAYER_ID = "boundaries-stroke";
 
       function computeFeatureBounds(fc) {
         let minX = Infinity;
@@ -155,9 +158,10 @@
       }
 
       async function initLayers() {
-        const [areas, lines] = await Promise.all([
+        const [areas, lines, boundaries] = await Promise.all([
           loadGeoJson("./output/isoareas.json"),
           loadGeoJson("./output/isolines.json"),
+          loadGeoJson("./output/boundaries.json"),
         ]);
 
         map.addSource(AREAS_SOURCE_ID, {
@@ -170,8 +174,13 @@
           data: lines,
         });
 
+        map.addSource(BOUNDARIES_SOURCE_ID, {
+          type: "geojson",
+          data: boundaries,
+        });
+
         map.addLayer({
-          id: AREAS_LAYER_ID,
+          id: AREAS_FILL_LAYER_ID,
           type: "fill",
           source: AREAS_SOURCE_ID,
           paint: {
@@ -195,6 +204,17 @@
           },
         });
 
+        // map.addLayer({
+        //   id: AREAS_VALUES_LAYER_ID,
+        //   type: "symbol",
+        //   source: AREAS_SOURCE_ID,
+        //   layout: {
+        //     "text-allow-overlap": true,
+        //     "text-field": ["to-string", ["coalesce", ["get", "value"], 0]],
+        //     "text-size": 12,
+        //   },
+        // });
+
         map.addLayer({
           id: LINES_LAYER_ID,
           type: "line",
@@ -205,7 +225,16 @@
             "line-opacity": 0.85,
           },
         });
-
+        map.addLayer({
+          id: BOUNDARIES_LAYER_ID,
+          type: "line",
+          source: BOUNDARIES_SOURCE_ID,
+          paint: {
+            "line-color": "#ff0000",
+            "line-width": 1.1,
+            "line-opacity": 0.85,
+          },
+        });
         const bounds = computeFeatureBounds(areas) || computeFeatureBounds(lines);
         if (bounds) {
           map.fitBounds(bounds, {
@@ -214,7 +243,7 @@
           });
         }
 
-        statusEl.textContent = `Loaded ${areas.features.length} isoareas and ${lines.features.length} isolines.`;
+        statusEl.textContent = `Loaded ${areas.features.length} isoareas, ${lines.features.length} isolines, and ${boundaries.features.length} boundaries.`;
       }
 
       map.on("load", async () => {
@@ -227,7 +256,8 @@
         }
 
         toggleareas.addEventListener("change", () => {
-          setLayerVisibility(AREAS_LAYER_ID, toggleareas.checked);
+          setLayerVisibility(AREAS_FILL_LAYER_ID, toggleareas.checked);
+          setLayerVisibility(AREAS_VALUES_LAYER_ID, toggleareas.checked);
         });
 
         toggleLines.addEventListener("change", () => {

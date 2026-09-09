@@ -49,6 +49,7 @@ async function main() {
 
   const isolines = interpolation.getIsolines("geojson");
   const isoareas = interpolation.getIsoareas("geojson");
+  const boundaries = interpolation.getBoundaries();
 
   const outDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "output");
 
@@ -56,13 +57,16 @@ async function main() {
 
   const areasPath = path.join(outDir, "isoareas.json");
   const linesPath = path.join(outDir, "isolines.json");
+  const boundariesPath = path.join(outDir, "boundaries.json");
 
   await fs.writeFile(areasPath, JSON.stringify(isoareas, null, 2), "utf8");
   await fs.writeFile(linesPath, JSON.stringify(isolines, null, 2), "utf8");
+  await fs.writeFile(boundariesPath, JSON.stringify(boundaries, null, 2), "utf8");
 
   console.log("GeoJSON written:");
   console.log(`- ${areasPath} (${isoareas.features.length} features)`);
   console.log(`- ${linesPath} (${isolines.features.length} features)`);
+  console.log(`- ${boundariesPath} (${boundaries.features.length} features)`);
 }
 
 main().catch((err) => {

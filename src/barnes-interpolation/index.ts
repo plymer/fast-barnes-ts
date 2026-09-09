@@ -73,6 +73,21 @@ export class BarnesInterpolation {
     return this.field;
   }
 
+  public getBoundaries(): FeatureCollection<LineString> {
+    const lines: Feature<LineString, { value: number }>[] = this.convertToWgs84(this.boundaries!).map((line, idx) => ({
+      type: "Feature",
+      geometry: {
+        type: "LineString",
+        coordinates: line,
+      },
+      properties: {
+        value: getThresholdValue(this.polylines!, idx),
+      },
+    }));
+
+    return { features: lines, type: "FeatureCollection" };
+  }
+
   private lonLatToWebMercator(lon: number, lat: number): { x: number; y: number } {
     const clampedLat = Math.max(Math.min(lat, 85.05112878), -85.05112878);
     const x = (lon * 20037508.34) / 180;
