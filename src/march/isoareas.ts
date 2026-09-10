@@ -132,27 +132,6 @@ function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][]
       const pointsToAppend: Position[] = [];
       // the next point might belong to another polyline or be a continuation of the current one
 
-      // find the next boundary point along the exterior of the domain that this polyline should connect to
-      for (let i = allBoundaryPoints.indexOf(extPoint) + 1; i < allBoundaryPoints.length; i++) {
-        const nextBoundaryPoint = allBoundaryPoints[i];
-        console.log("current point", extPoint, "next boundary point:", nextBoundaryPoint);
-        const lineTerminator = lineTerminations.find(
-          ({ point }) => point[0] === nextBoundaryPoint[0] && point[1] === nextBoundaryPoint[1],
-        );
-        if (lineTerminator) {
-          console.log("we hit a line terminator");
-          console.log("line terminator polyline index:", lineTerminator.polylineIndex);
-          console.log("did we hit ourself?:", lineTerminator.polylineIndex === pointToTest.polylineIndex);
-          // here we need to break out and add the new line's coordinates to ours
-          // and then pick back up along the boundary from this new line terminator's end
-          break;
-        }
-
-        // we need to check if we've hit 'ourself' as well
-      }
-
-      console.log("direction:", direction, ccwLineCoords[0]);
-
       polylinesWalked.add(pointToTest.polylineIndex);
     }
   }
