@@ -174,6 +174,74 @@ function ringKey(ring: Position[]): string {
   return `ring:${forward < backward ? forward : backward}`;
 }
 
+function signedArea(ring: Position[]): number {
+  let area = 0;
+
+  for (let i = 0; i < ring.length - 1; i++) {
+    const [x1, y1] = ring[i]!;
+    const [x2, y2] = ring[i + 1]!;
+    area += x1 * y2 - x2 * y1;
+  }
+
+  return area / 2;
+}
+
+function pointOnSegment(point: Position, a: Position, b: Position, epsilon = 1e-9): boolean {
+  const cross = (b[0] - a[0]) * (point[1] - a[1]) - (b[1] - a[1]) * (point[0] - a[0]);
+  if (Math.abs(cross) > epsilon) return false;
+
+  const dot = (point[0] - a[0]) * (b[0] - a[0]) + (point[1] - a[1]) * (b[1] - a[1]);
+  if (dot < -epsilon) return false;
+
+  const squaredLength = (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2;
+  return dot <= squaredLength + epsilon;
+}
+
+function pointOnRingBoundary(point: Position, ring: Position[]): boolean {
+  for (let i = 0; i < ring.length - 1; i++) {
+    if (pointOnSegment(point, ring[i]!, ring[i + 1]!)) return true;
+  }
+  return false;
+}
+
+function pointInRing(point: Position, ring: Position[]): boolean {
+  let inside = false;
+
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i]![0];
+    const yi = ring[i]![1];
+    const xj = ring[j]![0];
+    const yj = ring[j]![1];
+
+    const intersects =
+      yi > point[1] !== yj > point[1] && point[0] < ((xj - xi) * (point[1] - yi)) / (yj - yi || Number.EPSILON) + xi;
+
+    if (intersects) inside = !inside;
+  }
+
+  return inside;
+}
+
+function ringContainsRing(parent: Position[], child: Position[]): boolean {
+  let anyStrictInside = false;
+
+  for (const childPoint of child) {
+    if (pointOnRingBoundary(childPoint, parent)) continue;
+    if (!pointInRing(childPoint, parent)) return false;
+    anyStrictInside = true;
+  }
+
+  return anyStrictInside;
+}
+
+function edgeKey(a: Position, b: Position): string {
+  const qa = quantizePoint(a);
+  const qb = quantizePoint(b);
+  const aKey = pointKey(qa);
+  const bKey = pointKey(qb);
+  return aKey < bKey ? `${aKey}|${bKey}` : `${bKey}|${aKey}`;
+}
+
 function boundaryPathForward(from: Position, to: Position, shape: [number, number]): Position[] {
   if (pointsEqual(from, to)) return [[to[0], to[1]]];
 
@@ -378,8 +446,92 @@ export function generateIsoareas(
   console.log("we closed:", closedShortLines.length);
   console.log("deduped total:", uniqueLines.length);
 
+  const baseValues = uniqueLines.map((line) => line.value);
+  const adjustedValues = [...baseValues];
+  const absoluteAreas = uniqueLines.map((line) => Math.abs(signedArea(line.coords)));
+  const parentByIndex = new Map<number, number>();
+
+  for (let childIndex = 0; childIndex < uniqueLines.length; childIndex++) {
+    let bestParent: number | undefined;
+    let bestParentArea = Number.POSITIVE_INFINITY;
+
+    for (let parentIndex = 0; parentIndex < uniqueLines.length; parentIndex++) {
+      if (childIndex === parentIndex) continue;
+
+      const parentArea = absoluteAreas[parentIndex]!;
+      const childArea = absoluteAreas[childIndex]!;
+      if (parentArea <= childArea) continue;
+
+      if (!ringContainsRing(uniqueLines[parentIndex]!.coords, uniqueLines[childIndex]!.coords)) continue;
+
+      if (parentArea < bestParentArea) {
+        bestParentArea = parentArea;
+        bestParent = parentIndex;
+      }
+    }
+
+    if (bestParent !== undefined) parentByIndex.set(childIndex, bestParent);
+  }
+
+  const neighborsByIndex = new Map<number, Set<number>>();
+  const ringIndicesByEdge = new Map<string, number[]>();
+
+  uniqueLines.forEach((line, ringIndex) => {
+    for (let i = 0; i < line.coords.length - 1; i++) {
+      const key = edgeKey(line.coords[i]!, line.coords[i + 1]!);
+      const existing = ringIndicesByEdge.get(key);
+      if (!existing) ringIndicesByEdge.set(key, [ringIndex]);
+      else existing.push(ringIndex);
+    }
+  });
+
+  for (const sharing of ringIndicesByEdge.values()) {
+    if (sharing.length < 2) continue;
+
+    for (let i = 0; i < sharing.length; i++) {
+      for (let j = i + 1; j < sharing.length; j++) {
+        const a = sharing[i]!;
+        const b = sharing[j]!;
+        if (!neighborsByIndex.has(a)) neighborsByIndex.set(a, new Set<number>());
+        if (!neighborsByIndex.has(b)) neighborsByIndex.set(b, new Set<number>());
+        neighborsByIndex.get(a)!.add(b);
+        neighborsByIndex.get(b)!.add(a);
+      }
+    }
+  }
+
+  for (let i = 0; i < uniqueLines.length; i++) {
+    const currentValue = baseValues[i]!;
+    const currentLevel = findLevelIndex(polylines.levelValues, currentValue);
+    if (currentLevel <= 0) continue;
+
+    const parentIndex = parentByIndex.get(i);
+    const touchesBoundary = uniqueLines[i]!.coords.some((point) => pointIsOnBoundary(point, options.shape));
+
+    let shouldDropLevel = false;
+
+    if (parentIndex !== undefined && baseValues[parentIndex] === currentValue) {
+      shouldDropLevel = true;
+    } else if (touchesBoundary) {
+      const neighbors = neighborsByIndex.get(i);
+      if (neighbors) {
+        for (const neighborIndex of neighbors) {
+          // Only treat larger adjacent rings as parent-like neighbors.
+          if (absoluteAreas[neighborIndex]! > absoluteAreas[i]! && baseValues[neighborIndex] === currentValue) {
+            shouldDropLevel = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (shouldDropLevel) {
+      adjustedValues[i] = polylines.levelValues[currentLevel - 1]!;
+    }
+  }
+
   const polygons = uniqueLines.map((line) => [line.coords]);
-  const levelIndex = Uint8Array.from(uniqueLines.map((line) => findLevelIndex(polylines.levelValues, line.value)));
+  const levelIndex = Uint8Array.from(adjustedValues.map((value) => findLevelIndex(polylines.levelValues, value)));
 
   return { polygons, levelIndex, levelValues: polylines.levelValues };
 }

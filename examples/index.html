@@ -188,7 +188,17 @@
           type: "fill",
           source: AREAS_SOURCE_ID,
           paint: {
-            "fill-color": ["interpolate", ["linear"], ["coalesce", ["get", "value"], 0], -3, "blue", 3, "red"],
+            "fill-color": [
+              "interpolate",
+              ["linear"],
+              ["coalesce", ["get", "value"], 0],
+              -3,
+              "blue",
+              0,
+              "white",
+              3,
+              "red",
+            ],
             "fill-outline-color": "white",
             "fill-opacity": 0.45,
           },
