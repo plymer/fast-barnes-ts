@@ -186,6 +186,29 @@ function signedArea(ring: Position[]): number {
   return area / 2;
 }
 
+function ensureClosedRing(ring: Position[]): Position[] {
+  if (ring.length === 0) return [];
+
+  const closed = ring.map((point) => [point[0], point[1]] as Position);
+  if (!pointsEqual(closed[0]!, closed[closed.length - 1]!)) {
+    closed.push([closed[0]![0], closed[0]![1]]);
+  }
+
+  return closed;
+}
+
+function orientRing(ring: Position[], clockwise: boolean): Position[] {
+  const closed = ensureClosedRing(ring);
+  if (closed.length < 4) return closed;
+
+  const isClockwise = signedArea(closed) < 0;
+  if (isClockwise === clockwise) return closed;
+
+  const reversedOpen = closed.slice(0, -1).reverse();
+  reversedOpen.push([reversedOpen[0]![0], reversedOpen[0]![1]]);
+  return reversedOpen;
+}
+
 function pointOnSegment(point: Position, a: Position, b: Position, epsilon = 1e-9): boolean {
   const cross = (b[0] - a[0]) * (point[1] - a[1]) - (b[1] - a[1]) * (point[0] - a[0]);
   if (Math.abs(cross) > epsilon) return false;
@@ -530,7 +553,14 @@ export function generateIsoareas(
     }
   }
 
-  const polygons = uniqueLines.map((line) => [line.coords]);
+  // Represent contained islands as holes on their immediate parent polygon
+  // so fills do not bleed through enclosed regions.
+  const polygons = uniqueLines.map((line) => [orientRing(line.coords, false)]);
+
+  for (const [childIndex, parentIndex] of parentByIndex.entries()) {
+    polygons[parentIndex]!.push(orientRing(uniqueLines[childIndex]!.coords, true));
+  }
+
   const levelIndex = Uint8Array.from(adjustedValues.map((value) => findLevelIndex(polylines.levelValues, value)));
 
   return { polygons, levelIndex, levelValues: polylines.levelValues };
