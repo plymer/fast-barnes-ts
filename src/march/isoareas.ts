@@ -7,6 +7,19 @@ type IsoareaOptions = {
 };
 
 type PolylineWithValue = { value: number; coords: Position[]; index: number };
+type LineTermination = {
+  id: number;
+  polylineIndex: number;
+  atStart: boolean;
+  point: Position;
+};
+
+const keyPrecisionDigits = 7;
+const keyCollinearEpsilon = 1e-7;
+
+function pointsEqual(a: Position, b: Position): boolean {
+  return a[0] === b[0] && a[1] === b[1];
+}
 
 function pointIsOnBoundary(point: Position, shape: [number, number]) {
   return point[0] === 0 || point[0] === shape[0] - 1 || point[1] === 0 || point[1] === shape[1] - 1;
@@ -33,16 +46,148 @@ function boundaryOrderKey(point: Position, shape: [number, number]): [sideRank: 
   return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY];
 }
 
-function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][], shape: [number, number]) {
-  const [xDim, yDim] = shape;
+function sideEndCorner(sideRank: number, shape: [number, number]): Position {
+  const maxX = shape[0] - 1;
+  const maxY = shape[1] - 1;
 
+  switch (sideRank) {
+    case 0:
+      return [maxX, 0];
+    case 1:
+      return [maxX, maxY];
+    case 2:
+      return [0, maxY];
+    default:
+      return [0, 0];
+  }
+}
+
+function appendDistinct(target: Position[], point: Position) {
+  const last = target[target.length - 1];
+  if (!last || !pointsEqual(last, point)) target.push([point[0], point[1]]);
+}
+
+function appendPathDistinct(target: Position[], path: Position[]) {
+  for (const point of path) appendDistinct(target, point);
+}
+
+function pointKey(point: Position): string {
+  // Round for stable keying across tiny floating-point noise.
+  return `${point[0].toFixed(keyPrecisionDigits)},${point[1].toFixed(keyPrecisionDigits)}`;
+}
+
+function quantizePoint(point: Position): Position {
+  return [Number(point[0].toFixed(keyPrecisionDigits)), Number(point[1].toFixed(keyPrecisionDigits))];
+}
+
+function collinear(a: Position, b: Position, c: Position): boolean {
+  const cross = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+  return Math.abs(cross) <= keyCollinearEpsilon;
+}
+
+function normalizePointsForKey(ring: Position[]): Position[] {
+  if (ring.length === 0) return [];
+
+  const open = ring.length > 1 && pointsEqual(ring[0]!, ring[ring.length - 1]!) ? ring.slice(0, -1) : [...ring];
+  if (open.length === 0) return [];
+
+  const quantized = open.map(quantizePoint);
+
+  const deduped: Position[] = [];
+  for (const point of quantized) {
+    const last = deduped[deduped.length - 1];
+    if (!last || !pointsEqual(last, point)) deduped.push(point);
+  }
+
+  if (deduped.length >= 2 && pointsEqual(deduped[0]!, deduped[deduped.length - 1]!)) {
+    deduped.pop();
+  }
+
+  if (deduped.length < 3) return deduped;
+
+  const simplified = [...deduped];
+  let changed = true;
+
+  while (changed && simplified.length >= 3) {
+    changed = false;
+
+    for (let i = 0; i < simplified.length; i++) {
+      const previous = simplified[(i - 1 + simplified.length) % simplified.length]!;
+      const current = simplified[i]!;
+      const next = simplified[(i + 1) % simplified.length]!;
+
+      if (collinear(previous, current, next)) {
+        simplified.splice(i, 1);
+        changed = true;
+        break;
+      }
+    }
+  }
+
+  return simplified;
+}
+
+function canonicalCycleString(points: Position[]): string {
+  if (points.length === 0) return "";
+
+  const keys = points.map(pointKey);
+  const length = keys.length;
+  let best = "";
+
+  for (let start = 0; start < length; start++) {
+    const candidate: string[] = [];
+    for (let i = 0; i < length; i++) {
+      candidate.push(keys[(start + i) % length]!);
+    }
+
+    const asString = candidate.join("|");
+    if (best === "" || asString < best) best = asString;
+  }
+
+  return best;
+}
+
+function ringKey(ring: Position[]): string {
+  const open = normalizePointsForKey(ring);
+  if (open.length === 0) return "ring:";
+
+  const forward = canonicalCycleString(open);
+  const backward = canonicalCycleString([...open].reverse());
+  return `ring:${forward < backward ? forward : backward}`;
+}
+
+function boundaryPathForward(from: Position, to: Position, shape: [number, number]): Position[] {
+  if (pointsEqual(from, to)) return [[to[0], to[1]]];
+
+  const [fromSide] = boundaryOrderKey(from, shape);
+  const [toSide] = boundaryOrderKey(to, shape);
+
+  if (!Number.isFinite(fromSide) || !Number.isFinite(toSide)) return [[to[0], to[1]]];
+
+  const path: Position[] = [];
+  let side = fromSide;
+
+  while (side !== toSide) {
+    const corner = sideEndCorner(side, shape);
+    appendDistinct(path, corner);
+    side = (side + 1) % 4;
+  }
+
+  appendDistinct(path, to);
+  return path;
+}
+
+function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][], shape: [number, number]) {
   // lines we don't need to deal with - these are already valid polygon rings
   const closedLines: PolylineWithValue[] = [];
-
-  const polylinesWalked = new Set<number>();
+  const closedShortLines: PolylineWithValue[] = [];
+  const walkedStartTerminationIds = new Set<number>();
+  const walkCountByPolyline = new Map<number, number>();
+  const emittedLoopKeys = new Set<string>();
 
   // holds the endpoints along the exterior boundaries that we will check against
-  const lineTerminations: { polylineIndex: number; point: Position }[] = [];
+  const lineTerminations: LineTermination[] = [];
+  let terminationId = 0;
 
   polylines.polylines.forEach((line, index) => {
     const value = getThresholdValue(polylines, index);
@@ -54,8 +199,17 @@ function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][]
       // clone the line's coordinates (so we don't accidentally mutate the existing isoline)
       closedLines.push(convertToPolylineWithValue(line, value, index));
     } else {
-      lineTerminations.push({ polylineIndex: index, point: line[0] });
-      lineTerminations.push({ polylineIndex: index, point: line[line.length - 1] });
+      if (pointIsOnBoundary(line[0], shape)) {
+        lineTerminations.push({ id: terminationId++, polylineIndex: index, atStart: true, point: line[0] });
+      }
+      if (pointIsOnBoundary(line[line.length - 1], shape)) {
+        lineTerminations.push({
+          id: terminationId++,
+          polylineIndex: index,
+          atStart: false,
+          point: line[line.length - 1],
+        });
+      }
     }
   });
 
@@ -68,72 +222,99 @@ function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][]
     if (sideA !== sideB) return sideA - sideB;
     if (distanceA !== distanceB) return distanceA - distanceB;
 
-    return 0;
+    return a.polylineIndex - b.polylineIndex;
   });
 
-  // sort the exterior boundary points as well so we can walk them
-  // (don't forget to remove the last point which is duplicated)
-  // then splice the lineTermination points into this in the correct order too
-  const exteriorBoundary = boundaries[0].slice(1).sort((a, b) => {
-    const [sideA, distanceA] = boundaryOrderKey(a, shape);
-    const [sideB, distanceB] = boundaryOrderKey(b, shape);
+  const sortedTerminationIds = lineTerminations.map((termination) => termination.id);
+  const termById = new Map<number, LineTermination>(
+    lineTerminations.map((termination) => [termination.id, termination]),
+  );
+  const termIndexById = new Map<number, number>(
+    sortedTerminationIds.map((terminationId, sortedIndex) => [terminationId, sortedIndex]),
+  );
 
-    if (sideA !== sideB) return sideA - sideB;
-    if (distanceA !== distanceB) return distanceA - distanceB;
+  const termIdsByPolyline = new Map<number, number[]>();
+  for (const termination of lineTerminations) {
+    const existing = termIdsByPolyline.get(termination.polylineIndex);
+    if (!existing) termIdsByPolyline.set(termination.polylineIndex, [termination.id]);
+    else existing.push(termination.id);
+  }
 
-    return 0;
-  });
+  const oppositeTermination = (termination: LineTermination): LineTermination | undefined => {
+    const ids = termIdsByPolyline.get(termination.polylineIndex);
+    if (!ids || ids.length < 2) return undefined;
+    const oppositeId = ids[0] === termination.id ? ids[1] : ids[0];
+    return oppositeId === undefined ? undefined : termById.get(oppositeId);
+  };
 
-  // sort the exterior boundary points as well so we can walk them
-  // (don't forget to remove the last point which is duplicated)
-  // then splice the lineTermination points into this in the correct order too
-  const allBoundaryPoints = [...lineTerminations.map(({ point }) => point), ...exteriorBoundary].sort((a, b) => {
-    const [sideA, distanceA] = boundaryOrderKey(a, shape);
-    const [sideB, distanceB] = boundaryOrderKey(b, shape);
+  const nextTermination = (termination: LineTermination): LineTermination | undefined => {
+    const at = termIndexById.get(termination.id);
+    if (at === undefined || sortedTerminationIds.length === 0) return undefined;
+    const nextId = sortedTerminationIds[(at + 1) % sortedTerminationIds.length]!;
+    return termById.get(nextId);
+  };
 
-    if (sideA !== sideB) return sideA - sideB;
-    if (distanceA !== distanceB) return distanceA - distanceB;
+  for (const startTermination of lineTerminations) {
+    if (walkedStartTerminationIds.has(startTermination.id)) continue;
 
-    return 0;
-  });
+    const existingWalkCount = walkCountByPolyline.get(startTermination.polylineIndex) ?? 0;
+    if (existingWalkCount >= 2) continue;
 
-  // traverse all points along the exterior of the domain (including boundary points and line terminations)
-  for (const extPoint of allBoundaryPoints) {
-    const [bX, bY] = extPoint;
-    let pointToTest = undefined;
-    if (bY === 0) {
-      // along the bottom edge
-      pointToTest = lineTerminations.find(({ point }) => point[0] >= bX && point[1] === bY);
-    } else if (bX === xDim - 1) {
-      pointToTest = lineTerminations.find(({ point }) => point[0] === bX && point[1] >= bY);
-    } else if (bY === yDim - 1) {
-      pointToTest = lineTerminations.find(({ point }) => point[0] <= bX && point[1] === bY);
-    } else if (bX === 0) {
-      pointToTest = lineTerminations.find(({ point }) => point[0] === bX && point[1] <= bY);
+    const startLine = polylines.polylines[startTermination.polylineIndex];
+    const startValue = getThresholdValue(polylines, startTermination.polylineIndex);
+    const ring: Position[] = [[startTermination.point[0], startTermination.point[1]]];
+    let stitched = false;
+
+    let currentTermination: LineTermination | undefined = startTermination;
+    const maxSteps = lineTerminations.length * 4 + 8;
+
+    for (let step = 0; step < maxSteps; step++) {
+      if (!currentTermination) break;
+
+      const currentLine = polylines.polylines[currentTermination.polylineIndex];
+      const linePath = currentTermination.atStart ? currentLine : [...currentLine].reverse();
+      appendPathDistinct(
+        ring,
+        linePath.slice(1).map((point) => [point[0], point[1]]),
+      );
+
+      const exitTermination = oppositeTermination(currentTermination);
+      if (!exitTermination) break;
+
+      const nextOnBoundary = nextTermination(exitTermination);
+      if (!nextOnBoundary) break;
+
+      appendPathDistinct(ring, boundaryPathForward(exitTermination.point, nextOnBoundary.point, shape));
+
+      if (nextOnBoundary.polylineIndex === startTermination.polylineIndex) {
+        appendPathDistinct(ring, boundaryPathForward(nextOnBoundary.point, startTermination.point, shape));
+        if (!pointsEqual(ring[0]!, ring[ring.length - 1]!)) ring.push([ring[0]![0], ring[0]![1]]);
+        const dedupeKey = ringKey(ring);
+        if (!emittedLoopKeys.has(dedupeKey)) {
+          closedShortLines.push(convertToPolylineWithValue(ring, startValue, startTermination.polylineIndex));
+          emittedLoopKeys.add(dedupeKey);
+        }
+        stitched = true;
+        break;
+      }
+
+      currentTermination = nextOnBoundary;
     }
 
-    // we have no point to test
-    if (pointToTest === undefined) continue;
-
-    // we've already walked this polyline
-    if (polylinesWalked.has(pointToTest.polylineIndex)) continue;
-
-    // otherwise let's do the walkies
-    if (pointToTest) {
-      // get the polyline coordinates that map to the point we're testing
-      const coords = polylines.polylines[pointToTest.polylineIndex];
-      const [lineStartX, lineStartY] = coords[0];
-
-      const direction = lineStartX === bX && lineStartY === bY ? "start" : "end";
-
-      // clone our original coords
-      const ccwLineCoords = direction === "end" ? [...coords] : [...coords].reverse();
-
-      const pointsToAppend: Position[] = [];
-      // the next point might belong to another polyline or be a continuation of the current one
-
-      polylinesWalked.add(pointToTest.polylineIndex);
+    // If we could not stitch this walk into a closure, preserve the original
+    // polyline so upstream code can still inspect the unresolved geometry.
+    if (!stitched) {
+      const dedupeKey = ringKey(startLine);
+      if (!emittedLoopKeys.has(dedupeKey)) {
+        closedShortLines.push(convertToPolylineWithValue(startLine, startValue, startTermination.polylineIndex));
+        emittedLoopKeys.add(dedupeKey);
+      }
     }
+
+    // Only mark the origin termination as consumed so other starts,
+    // including the opposite endpoint of the same polyline, can still run.
+    walkedStartTerminationIds.add(startTermination.id);
+    walkCountByPolyline.set(startTermination.polylineIndex, existingWalkCount + 1);
   }
 
   // // check which boundary points could be included in the open lines
@@ -219,7 +400,7 @@ function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][]
   //   })
   //   .filter((osl) => osl !== undefined);
 
-  return { closedLines, openLines: [], closedShortLines: [] };
+  return { closedLines, openLines: [], closedShortLines };
 }
 
 export function generateIsoareas(
@@ -231,12 +412,25 @@ export function generateIsoareas(
 
   const { closedLines, closedShortLines } = closePolylines(polylines, boundaries, options.shape);
 
+  // Final safety dedupe: remove identical geometry emitted from different
+  // traversal origins before turning lines into polygons.
+  const seenGeometryKeys = new Set<string>();
+  const uniqueLines: PolylineWithValue[] = [];
+
+  for (const line of [...closedLines, ...closedShortLines]) {
+    const dedupeKey = ringKey(line.coords);
+    if (seenGeometryKeys.has(dedupeKey)) continue;
+    seenGeometryKeys.add(dedupeKey);
+    uniqueLines.push(line);
+  }
+
   // if one of the x or y values is equal to either zero or the boundary limit, it might indicate an edge case for closing the polyline
 
   console.log("started closed:", closedLines.length);
   console.log("we closed:", closedShortLines.length);
+  console.log("deduped total:", uniqueLines.length);
 
-  const polygons = [...closedLines, ...closedShortLines].map((line) => [line.coords]);
+  const polygons = uniqueLines.map((line) => [line.coords]);
 
   return { polygons, levelIndex, levelValues: polylines.levelValues };
 }
