@@ -29,6 +29,24 @@ function convertToPolylineWithValue(polyline: Position[], value: number, index: 
   return { value, coords: polyline.map((p) => [...p]), index };
 }
 
+function findLevelIndex(levelValues: number[], value: number): number {
+  const exact = levelValues.findIndex((candidate) => candidate === value);
+  if (exact !== -1) return exact;
+
+  // Fallback for tiny floating-point mismatches.
+  let bestIndex = 0;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < levelValues.length; i++) {
+    const distance = Math.abs(levelValues[i]! - value);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = i;
+    }
+  }
+
+  return bestIndex;
+}
+
 function boundaryOrderKey(point: Position, shape: [number, number]): [sideRank: number, distanceOnSide: number] {
   const [x, y] = point;
   const maxX = shape[0] - 1;
@@ -264,6 +282,7 @@ function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][]
     const startValue = getThresholdValue(polylines, startTermination.polylineIndex);
     const ring: Position[] = [[startTermination.point[0], startTermination.point[1]]];
     let stitched = false;
+    let minWalkValue = startValue;
 
     let currentTermination: LineTermination | undefined = startTermination;
     const maxSteps = lineTerminations.length * 4 + 8;
@@ -272,6 +291,8 @@ function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][]
       if (!currentTermination) break;
 
       const currentLine = polylines.polylines[currentTermination.polylineIndex];
+      const currentValue = getThresholdValue(polylines, currentTermination.polylineIndex);
+      minWalkValue = Math.min(minWalkValue, currentValue);
       const linePath = currentTermination.atStart ? currentLine : [...currentLine].reverse();
       appendPathDistinct(
         ring,
@@ -291,7 +312,7 @@ function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][]
         if (!pointsEqual(ring[0]!, ring[ring.length - 1]!)) ring.push([ring[0]![0], ring[0]![1]]);
         const dedupeKey = ringKey(ring);
         if (!emittedLoopKeys.has(dedupeKey)) {
-          closedShortLines.push(convertToPolylineWithValue(ring, startValue, startTermination.polylineIndex));
+          closedShortLines.push(convertToPolylineWithValue(ring, minWalkValue, startTermination.polylineIndex));
           emittedLoopKeys.add(dedupeKey);
         }
         stitched = true;
@@ -408,20 +429,30 @@ export function generateIsoareas(
   boundaries: Position[][],
   options: IsoareaOptions,
 ): PolygonsWithLevels {
-  const levelIndex = new Uint8Array();
-
   const { closedLines, closedShortLines } = closePolylines(polylines, boundaries, options.shape);
 
   // Final safety dedupe: remove identical geometry emitted from different
   // traversal origins before turning lines into polygons.
-  const seenGeometryKeys = new Set<string>();
+  const geometryIndexByKey = new Map<string, number>();
   const uniqueLines: PolylineWithValue[] = [];
 
   for (const line of [...closedLines, ...closedShortLines]) {
     const dedupeKey = ringKey(line.coords);
-    if (seenGeometryKeys.has(dedupeKey)) continue;
-    seenGeometryKeys.add(dedupeKey);
-    uniqueLines.push(line);
+    const existingIndex = geometryIndexByKey.get(dedupeKey);
+
+    if (existingIndex === undefined) {
+      geometryIndexByKey.set(dedupeKey, uniqueLines.length);
+      uniqueLines.push(line);
+      continue;
+    }
+
+    const existing = uniqueLines[existingIndex]!;
+    if (line.value < existing.value) {
+      uniqueLines[existingIndex] = {
+        ...existing,
+        value: line.value,
+      };
+    }
   }
 
   // if one of the x or y values is equal to either zero or the boundary limit, it might indicate an edge case for closing the polyline
@@ -431,6 +462,7 @@ export function generateIsoareas(
   console.log("deduped total:", uniqueLines.length);
 
   const polygons = uniqueLines.map((line) => [line.coords]);
+  const levelIndex = Uint8Array.from(uniqueLines.map((line) => findLevelIndex(polylines.levelValues, line.value)));
 
   return { polygons, levelIndex, levelValues: polylines.levelValues };
 }
