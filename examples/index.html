@@ -189,8 +189,20 @@
           source: AREAS_SOURCE_ID,
           paint: {
             "fill-color": ["interpolate", ["linear"], ["coalesce", ["get", "value"], 0], -3, "blue", 3, "red"],
-            "fill-antialias": false,
+            "fill-outline-color": "white",
             "fill-opacity": 0.45,
+          },
+        });
+
+        map.addLayer({
+          id: AREAS_VALUE_LAYER_ID,
+          type: "symbol",
+          source: AREAS_SOURCE_ID,
+          layout: {
+            "text-allow-overlap": true,
+            "text-field": ["get", "value"],
+            "text-size": 12,
+            "text-font": ["Noto Sans Regular"],
           },
         });
 
