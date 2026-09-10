@@ -65,7 +65,45 @@ describe("generateIsoareas", () => {
     expect(result.polygons).toHaveLength(2);
     expect(Array.from(result.levelIndex)).toEqual([0, 1]);
     expect(result.polygons[0]?.[0]).toEqual(polylines.polylines[0]);
-    expect(result.polygons[0]?.[1]).toEqual(polylines.polylines[1]);
+    expect(result.polygons[0]?.[1]?.length).toEqual(polylines.polylines[1]?.length);
+    expect(result.polygons[0]?.[1]).toContainEqual([1, 1]);
+    expect(result.polygons[0]?.[1]).toContainEqual([3, 3]);
     expect(result.polygons[1]?.[0]).toEqual(polylines.polylines[1]);
+  });
+
+  it("includes boundary-touching upper rings as lower-band cutouts", () => {
+    const boundaries: Position[][] = [];
+
+    const lower = [
+      [0, 0],
+      [4, 0],
+      [4, 4],
+      [0, 4],
+      [0, 0],
+    ] as Position[];
+
+    const touchingUpper = [
+      [0, 1],
+      [2, 1],
+      [2, 3],
+      [0, 3],
+      [0, 1],
+    ] as Position[];
+
+    const polylines: PolylinesWithLevels = {
+      polylines: [lower, touchingUpper],
+      levelValues: [0, 0.5, 1],
+      levelIndex: Uint8Array.from([0, 1]),
+    };
+
+    const result = generateIsoareas(polylines, boundaries, { shape: [5, 5] });
+    const zeroBand = result.polygons[result.levelIndex.findIndex((idx) => idx === 0)]!;
+    const hole = zeroBand[1]!;
+
+    expect(zeroBand).toBeDefined();
+    expect(hole.length).toEqual(touchingUpper.length);
+    expect(hole).toContainEqual([2, 1]);
+    expect(hole).toContainEqual([2, 3]);
+    expect(hole.some(([x, y]) => x > 0 && (Math.abs(y - 1) < 1e-3 || Math.abs(y - 3) < 1e-3))).toBe(true);
   });
 });

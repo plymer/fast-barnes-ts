@@ -187,6 +187,7 @@
           id: AREAS_FILL_LAYER_ID,
           type: "fill",
           source: AREAS_SOURCE_ID,
+          filter: ["==", ["get", "value"], 0],
           paint: {
             "fill-color": [
               "interpolate",
@@ -207,9 +208,10 @@
               3,
               "#a50026",
             ],
-            "fill-antialias": false,
             "fill-opacity": 0.45,
+            "fill-outline-color": "white",
           },
+          layout: { "fill-sort-key": ["get", "value"] },
         });
 
         map.addLayer({

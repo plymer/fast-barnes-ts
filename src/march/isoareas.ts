@@ -1,6 +1,6 @@
 import type { Position } from "geojson";
 import type { PolygonsWithLevels, PolylinesWithLevels } from "./types";
-import { pointInRing, ringSignedArea } from "./helpers";
+import { pointInRing, reverseRing, ringSignedArea } from "./helpers";
 
 type IsoareaOptions = {
   shape: [number, number];
@@ -34,6 +34,7 @@ type EndpointEvent = {
 };
 
 const pointMatchEpsilon = 1e-9;
+const touchingHoleInset = 1e-4;
 
 function nearlyEqual(a: number, b: number): boolean {
   return Math.abs(a - b) <= pointMatchEpsilon;
@@ -41,6 +42,147 @@ function nearlyEqual(a: number, b: number): boolean {
 
 function pointsEqual(a: Position, b: Position): boolean {
   return nearlyEqual(a[0], b[0]) && nearlyEqual(a[1], b[1]);
+}
+
+function pointOnSegment(point: Position, a: Position, b: Position): boolean {
+  const [px, py] = point;
+  const [ax, ay] = a;
+  const [bx, by] = b;
+
+  const abx = bx - ax;
+  const aby = by - ay;
+  const apx = px - ax;
+  const apy = py - ay;
+  const cross = abx * apy - aby * apx;
+  if (Math.abs(cross) > pointMatchEpsilon) return false;
+
+  const dot = apx * abx + apy * aby;
+  if (dot < -pointMatchEpsilon) return false;
+
+  const lenSq = abx * abx + aby * aby;
+  if (dot - lenSq > pointMatchEpsilon) return false;
+
+  return true;
+}
+
+function pointOnRing(point: Position, ring: Position[]): boolean {
+  for (let i = 0; i < ring.length - 1; i++) {
+    if (pointOnSegment(point, ring[i]!, ring[i + 1]!)) return true;
+  }
+  return false;
+}
+
+function pointInOrOnRing(point: Position, ring: Position[]): boolean {
+  return pointInRing(point, ring) || pointOnRing(point, ring);
+}
+
+function ringContainedInRing(candidate: Position[], parent: Position[]): boolean {
+  const n = candidate.length - 1;
+  if (n < 3) return false;
+
+  for (let i = 0; i < n; i++) {
+    if (!pointInOrOnRing(candidate[i]!, parent)) return false;
+  }
+
+  return true;
+}
+
+function nudgeTouchingRingInside(candidate: Position[], parent: Position[]): Position[] {
+  if (candidate.length < 4) return candidate;
+
+  let cx = 0;
+  let cy = 0;
+  const n = candidate.length - 1;
+  for (let i = 0; i < n; i++) {
+    cx += candidate[i]![0];
+    cy += candidate[i]![1];
+  }
+  cx /= n;
+  cy /= n;
+
+  const adjusted: Position[] = candidate.map(([x, y]) => [x, y]);
+  let changed = false;
+
+  for (let i = 0; i < n; i++) {
+    const p = adjusted[i]!;
+    if (!pointOnRing(p, parent)) continue;
+
+    const dx = cx - p[0];
+    const dy = cy - p[1];
+    const len = Math.hypot(dx, dy);
+    if (len <= pointMatchEpsilon) continue;
+
+    p[0] += (dx / len) * touchingHoleInset;
+    p[1] += (dy / len) * touchingHoleInset;
+    changed = true;
+  }
+
+  if (changed) {
+    adjusted[adjusted.length - 1] = [adjusted[0]![0], adjusted[0]![1]];
+  }
+
+  return adjusted;
+}
+
+function removeSequentialDuplicates(ring: Position[]): Position[] {
+  if (ring.length === 0) return ring;
+  const out: Position[] = [[ring[0]![0], ring[0]![1]]];
+  for (let i = 1; i < ring.length; i++) {
+    const p = ring[i]!;
+    if (!pointsEqual(out[out.length - 1]!, p)) out.push([p[0], p[1]]);
+  }
+  return out;
+}
+
+function removeCollinearVertices(ring: Position[]): Position[] {
+  if (ring.length <= 4) return ring;
+
+  const out: Position[] = [ring[0]!, ring[1]!].map(([x, y]) => [x, y]);
+  for (let i = 2; i < ring.length; i++) {
+    const c = ring[i]!;
+    const b = out[out.length - 1]!;
+    const a = out[out.length - 2]!;
+
+    const abx = b[0] - a[0];
+    const aby = b[1] - a[1];
+    const bcx = c[0] - b[0];
+    const bcy = c[1] - b[1];
+    const cross = abx * bcy - aby * bcx;
+
+    if (Math.abs(cross) <= pointMatchEpsilon) {
+      out[out.length - 1] = [c[0], c[1]];
+    } else {
+      out.push([c[0], c[1]]);
+    }
+  }
+
+  return out;
+}
+
+function normalizeRing(ring: Position[]): Position[] | undefined {
+  if (ring.length < 4) return undefined;
+
+  const opened = pointsEqual(ring[0]!, ring[ring.length - 1]!) ? ring.slice(0, -1) : [...ring];
+  if (opened.length < 3) return undefined;
+
+  let cleaned = removeSequentialDuplicates(opened);
+  if (cleaned.length < 3) return undefined;
+
+  cleaned = removeCollinearVertices(cleaned);
+  if (cleaned.length < 3) return undefined;
+
+  const closed = [...cleaned, cleaned[0]!];
+  const area = Math.abs(ringSignedArea(closed));
+  if (area <= pointMatchEpsilon) return undefined;
+
+  return closed;
+}
+
+function orientHoleAgainstOuter(outer: Position[], hole: Position[]): Position[] {
+  const outerSign = Math.sign(ringSignedArea(outer));
+  const holeSign = Math.sign(ringSignedArea(hole));
+  if (outerSign !== 0 && holeSign === outerSign) return reverseRing(hole);
+  return hole;
 }
 
 function pointOnBoundarySegment(point: Position, a: Position, b: Position): number | undefined {
@@ -408,7 +550,10 @@ function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][]
       closedLines.push(polylineWithValue);
     } else {
       const startLocation = pickBoundaryLocation(polylineWithValue.coords[0]!, boundaries);
-      const endLocation = pickBoundaryLocation(polylineWithValue.coords[polylineWithValue.coords.length - 1]!, boundaries);
+      const endLocation = pickBoundaryLocation(
+        polylineWithValue.coords[polylineWithValue.coords.length - 1]!,
+        boundaries,
+      );
 
       if (!startLocation || !endLocation) {
         const fallback = closePolylineOnBoundary(polylineWithValue.coords, boundaries);
@@ -437,7 +582,7 @@ function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][]
 
   for (const [levelIdx, openLines] of openByLevel) {
     const levelValue = polylines.levelValues[levelIdx]!;
-    const preferLargerBoundaryArc = levelValue <= midLevel;
+    const preferLargerBoundaryArc = levelValue < midLevel;
     const stitched = stitchOpenLinesOnBoundary(openLines, boundaries, preferLargerBoundaryArc);
     for (const ring of stitched) {
       closedShortLines.push({ levelIdx, coords: ring });
@@ -458,9 +603,9 @@ function toLevels(rings: PolylineWithLevel[], levelCount: number): Position[][][
 }
 
 function immediateChildren(parent: Position[], candidates: Position[][]): Position[][] {
-  const contained = candidates.filter((candidate) => pointInRing(candidate[0]!, parent));
+  const contained = candidates.filter((candidate) => ringContainedInRing(candidate, parent));
   return contained.filter(
-    (candidate) => !contained.some((other) => other !== candidate && pointInRing(candidate[0]!, other)),
+    (candidate) => !contained.some((other) => other !== candidate && ringContainedInRing(candidate, other)),
   );
 }
 
@@ -485,8 +630,16 @@ export function generateIsoareas(
     const upperLevelRings = ringsByLevel[bandIdx + 1] ?? [];
 
     for (const lowerRing of lowerLevelRings) {
-      const holes = immediateChildren(lowerRing, upperLevelRings);
-      polygons.push([lowerRing, ...holes]);
+      const normalizedOuter = normalizeRing(lowerRing);
+      if (!normalizedOuter) continue;
+
+      const holes = immediateChildren(normalizedOuter, upperLevelRings)
+        .map((hole) => nudgeTouchingRingInside(hole, normalizedOuter))
+        .map((hole) => orientHoleAgainstOuter(normalizedOuter, hole))
+        .map((hole) => normalizeRing(hole))
+        .filter((hole): hole is Position[] => hole !== undefined);
+
+      polygons.push([normalizedOuter, ...holes]);
       levelIndexBuffer.push(bandIdx);
     }
   }
