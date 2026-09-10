@@ -6,18 +6,6 @@ type IsoareaOptions = {
   shape: [number, number];
 };
 
-// A single closed ring produced either directly from a closed polyline, or by closing an open
-// polyline against the boundary ring it exits through.
-type Ring = {
-  linePoints: Position[];
-  levelIndex: number;
-  // vertices needed to close an open polyline against the boundary it touches, kept separate from
-  // linePoints so duplicate boundary-hugging vertices claimed by another ring can be dropped later.
-  closingRefs?: { point: Position; boundaryRingIndex: number; segmentIndex: number }[];
-};
-
-const pointEpsilon = 1e-7;
-
 type PolylineWithValue = { value: number; coords: Position[] };
 
 function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][], shape: [number, number]) {
