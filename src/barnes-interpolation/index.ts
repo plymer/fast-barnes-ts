@@ -27,7 +27,6 @@ import { generateIsoareas } from "../march/isoareas";
  * ```
  */
 export class BarnesInterpolation {
-  tupleData: Tuple2DWithValue[];
   barnesData: Float32Array;
   barnesParams: SphericalBarnesParams2D;
   resolution: [number, number];
@@ -46,7 +45,6 @@ export class BarnesInterpolation {
     tupleData: Tuple2DWithValue[],
     options: { resolution: [number, number]; sigma: number | readonly number[]; barnesOptions: BarnesOptions },
   ) {
-    this.tupleData = tupleData;
     this.resolution = options.resolution;
     this.sigma = options.sigma;
     this.barnesParams = getBarnesParams(tupleData, { resolution: this.resolution });
@@ -151,7 +149,7 @@ export class BarnesInterpolation {
 
   public computeIsolines(thresholdStep: number) {
     this.thresholdStep = thresholdStep;
-    this.thresholds = computeThresholds(this.tupleData, this.thresholdStep);
+    this.thresholds = computeThresholds(this.field, this.thresholdStep);
     // store the raw polylines for helping with isoarea generation
     // we'll project the lines to the correct coordinate space when we
     // do the getIsolines function

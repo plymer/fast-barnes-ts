@@ -1,11 +1,14 @@
 import type { Position } from "geojson";
 import type { PolygonsWithLevels, PolylinesWithLevels, ScalarField } from "../march/types";
-import { computeDomainBoundary, computePolylines } from "../march";
+import { computeDomainBoundary, computePolylines, fieldFromNestedGrid } from "../march";
 import { computeThresholds } from "../march/isolines";
 import { generateIsoareas } from "../march/isoareas";
 
 export class GriddedData {
   field: ScalarField;
+  xDim: number;
+  yDim: number;
+  shape: [number, number];
   projection: "WGS84" | "EPSG:3857";
   boundaries: Position[][] | undefined;
   polylines: PolylinesWithLevels | undefined;
@@ -13,8 +16,11 @@ export class GriddedData {
   thresholdStep: number | undefined;
   thresholds: number[] | undefined;
 
-  constructor(field: ScalarField, projection: "WGS84" | "EPSG:3857") {
-    this.field = field;
+  constructor(griddedData: number[][], projection: "WGS84" | "EPSG:3857") {
+    this.field = fieldFromNestedGrid(griddedData);
+    this.xDim = this.field.xDim;
+    this.yDim = this.field.yDim;
+    this.shape = [this.xDim, this.yDim];
     this.projection = projection;
   }
 
@@ -42,7 +48,7 @@ export class GriddedData {
 
     this.boundaries = computeDomainBoundary(this.field);
 
-    this.contourBands = generateIsoareas(this.polylines!, this.boundaries!, { thresholdStep: threshold });
+    this.contourBands = generateIsoareas(this.polylines!, this.boundaries!, { shape: this.shape });
   }
 
   public computeExtrema() {

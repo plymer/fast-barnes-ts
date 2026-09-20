@@ -55,7 +55,7 @@ function assertGridDims(xDim: number, yDim: number) {
   }
 }
 
-function fieldFromNestedGrid(grid: number[][]): ScalarField {
+export function fieldFromNestedGrid(grid: number[][]): ScalarField {
   const yDim = grid.length;
   const xDim = grid[0]?.length ?? 0;
   assertGridDims(xDim, yDim);

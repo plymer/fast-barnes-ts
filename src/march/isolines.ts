@@ -1,6 +1,12 @@
 import type { Tuple2DWithValue } from "../barnes/types";
 import type { ScalarField } from "./types";
 
+/**
+ * Calculates the threshold values for contour and polygon generation based on the input data and step size.
+ * @param data The input data to compute thresholds from - can be a Tuple2DWithValue array or a ScalarField
+ * @param thresholdStep The distance between values (step size) for contours and polygon generation
+ * @returns An array of threshold values based on the step size and the input data
+ */
 export function computeThresholds(data: Tuple2DWithValue[], thresholdStep: number): number[];
 export function computeThresholds(data: ScalarField, thresholdStep: number): number[];
 export function computeThresholds(data: Tuple2DWithValue[] | ScalarField, thresholdStep: number): number[] {
