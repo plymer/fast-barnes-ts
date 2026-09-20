@@ -1,6 +1,6 @@
 import type { Position } from "geojson";
 import type { PolygonsWithLevels, PolylinesWithLevels } from "./types";
-import { getThresholdValue } from "./helpers";
+import { pointInRing, reverseRing, ringSignedArea } from "./helpers";
 
 type IsoareaOptions = {
   shape: [number, number];
@@ -299,7 +299,7 @@ function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][]
   let terminationId = 0;
 
   polylines.polylines.forEach((line, index) => {
-    const value = getThresholdValue(polylines, index);
+    const levelIdx = polylines.levelIndex[index]!;
 
     const [sx, sy] = line[0];
     const [ex, ey] = line[line.length - 1];
@@ -432,10 +432,26 @@ function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][]
   return { closedLines, openLines: [], closedShortLines };
 }
 
+/**
+ * Main entry point that builds final isoarea polygons for all contour bands.
+ *
+ * Band meaning:
+ * Band i is the area between level i and level i + 1.
+ *
+ * Pipeline in this function:
+ * 1. Close open isolines so each level has rings.
+ * 2. Group rings by level.
+ * 3. For each band, use lower-level rings as outer shells.
+ * 4. Find upper-level rings directly inside each shell and treat them as
+ *    holes.
+ * 5. Normalize geometry and fix winding before output.
+ *
+ * Returns polygons with level indices and original level values.
+ */
 export function generateIsoareas(
   polylines: PolylinesWithLevels,
   boundaries: Position[][],
-  options: IsoareaOptions,
+  _options: IsoareaOptions,
 ): PolygonsWithLevels {
   const { closedLines, closedShortLines } = closePolylines(polylines, boundaries, options.shape);
 

@@ -96,6 +96,27 @@ export class BarnesInterpolation {
     return { x, y };
   }
 
+  private densifyLine(line: Position[], maxGridDelta = 0.05): Position[] {
+    if (line.length < 2) return line.map(([x, y]) => [x, y]);
+
+    const densified: Position[] = [[line[0]![0], line[0]![1]]];
+
+    for (let i = 0; i < line.length - 1; i++) {
+      const [x0, y0] = line[i]!;
+      const [x1, y1] = line[i + 1]!;
+      const dx = x1 - x0;
+      const dy = y1 - y0;
+      const segments = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / maxGridDelta));
+
+      for (let k = 1; k <= segments; k++) {
+        const t = k / segments;
+        densified.push([x0 + dx * t, y0 + dy * t]);
+      }
+    }
+
+    return densified;
+  }
+
   private convertToWgs84(geometries: Position[], paddingOffset?: { x: number; y: number }): Position[];
   private convertToWgs84(geometries: Position[][], paddingOffset?: { x: number; y: number }): Position[][];
   private convertToWgs84(
@@ -105,8 +126,8 @@ export class BarnesInterpolation {
     if (!paddingOffset) paddingOffset = { x: 0, y: 0 };
     if (Array.isArray(geometries[0][0])) {
       // geometries is Position[][] (aka a Polygon)
-      return (geometries as Position[][]).map((polygon) =>
-        polygon.map(([x, y]) =>
+      return (geometries as Position[][]).map((ring) =>
+        this.densifyLine(ring).map(([x, y]) =>
           this.barnesParams.unproject(
             this.barnesParams.x0[0] + paddingOffset.x + x * this.barnesParams.step[0]!,
             this.barnesParams.x0[1] + paddingOffset.y + y * this.barnesParams.step[1]!,
@@ -115,7 +136,7 @@ export class BarnesInterpolation {
       );
     } else {
       // geometries is Position[] (aka a Line)
-      return (geometries as Position[]).map(([x, y]) =>
+      return this.densifyLine(geometries as Position[]).map(([x, y]) =>
         this.barnesParams.unproject(
           this.barnesParams.x0[0] + paddingOffset.x + x * this.barnesParams.step[0]!,
           this.barnesParams.x0[1] + paddingOffset.y + y * this.barnesParams.step[1]!,
