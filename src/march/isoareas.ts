@@ -286,6 +286,8 @@ function boundaryPathForward(from: Position, to: Position, shape: [number, numbe
   return path;
 }
 
+// TODO :: Integrate the boundary walk into the closePolylines function so we can hug the actual grid domain (and also close polygons that don't seem to have fully-defined boundaries -- switch the sigma value in the example generation to see the impacts i.e. values of 0.5 and 2.0 show 'missed' polygons)
+
 function closePolylines(polylines: PolylinesWithLevels, boundaries: Position[][], shape: [number, number]) {
   // lines we don't need to deal with - these are already valid polygon rings
   const closedLines: PolylineWithValue[] = [];
